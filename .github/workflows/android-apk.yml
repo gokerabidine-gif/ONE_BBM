@@ -107,7 +107,7 @@ jobs:
               except ValueError:
                   raise SystemExit('AIM button line not found')
           lines = [line.replace('// btn row + fire row + the gap between them, from the stylesheet.', '// Two control rows (slide is beside AIM) + their gap, from the stylesheet.') for line in lines]
-          p.write_text("\\n".join(lines) + "\\n")
+          p.write_text("\n".join(lines) + "\n")
           print('Phase 8 slide button layout applied')
           PY
 

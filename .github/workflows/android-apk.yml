@@ -97,17 +97,17 @@ jobs:
           python3 - <<'PY'
           from pathlib import Path
           p = Path('src/ui/touch.js')
-          s = p.read_text()
-          s = s.replace("    const row3 = el('div', 'ow-trow', this.btns);\\n", "", 1)
-          aim = "    this.bAim = this._button(row1, 'aim', 'AIM', 'aim');\\n"
-          slide = "    this.bSlide = this._button(row1, 'slide', 'SLIDE', 'slide');\\n"
-          if slide not in s:
-              if aim not in s:
+          lines = p.read_text().splitlines()
+          lines = [line for line in lines if line.strip() != "const row3 = el('div', 'ow-trow', this.btns);" and line.strip() != "this.bSlide = this._button(row3, 'slide', 'SLIDE', 'slide');"]
+          aim = "    this.bAim = this._button(row1, 'aim', 'AIM', 'aim');"
+          slide = "    this.bSlide = this._button(row1, 'slide', 'SLIDE', 'slide');"
+          if slide not in lines:
+              try:
+                  lines.insert(lines.index(aim) + 1, slide)
+              except ValueError:
                   raise SystemExit('AIM button line not found')
-              s = s.replace(aim, aim + slide, 1)
-          s = s.replace("    this.bSlide = this._button(row3, 'slide', 'SLIDE', 'slide');\\n", "", 1)
-          s = s.replace('    // btn row + fire row + the gap between them, from the stylesheet.\\n', '    // Two control rows (slide is beside AIM) + their gap, from the stylesheet.\\n', 1)
-          p.write_text(s)
+          lines = [line.replace('// btn row + fire row + the gap between them, from the stylesheet.', '// Two control rows (slide is beside AIM) + their gap, from the stylesheet.') for line in lines]
+          p.write_text("\\n".join(lines) + "\\n")
           print('Phase 8 slide button layout applied')
           PY
 

@@ -68,48 +68,26 @@ jobs:
         run: |
           python3 - <<'PY'
           from pathlib import Path
-
-          main = Path('src/main.js')
-          s = main.read_text()
-          old = """const config = createConfig({
-  quality: explicitQ ?? (wantsUltra ? 'ultra' : detectTier()),
-  deterministic: capture,
-});"""
-          new = old + """
-// Android WebView has a tighter GPU-memory budget than desktop browsers.
-const isAndroidMobile = /Android/i.test(navigator.userAgent);
-if (isAndroidMobile) {
-  Object.assign(config.q, {
-    renderScale: 0.55,
-    shadowMapSize: 512,
-    cascades: 1,
-    shadowDistance: 55,
-    drawDistance: 650,
-    streamRadius: 120,
-    particleBudget: 700,
-    decalBudget: 24,
-    anisotropy: 2,
-    trafficBudget: 4,
-    pedBudget: 6,
-  });
-}"""
+          p = Path('src/main.js')
+          s = p.read_text()
+          anchor = "const canvas = document.getElementById('game');"
+          mobile = "if (/Android/i.test(navigator.userAgent)) Object.assign(config.q, { renderScale: 0.55, shadowMapSize: 512, cascades: 1, shadowDistance: 55, drawDistance: 650, streamRadius: 120, particleBudget: 700, decalBudget: 24, anisotropy: 2, trafficBudget: 4, pedBudget: 6 });\\n\\n"
+          if anchor not in s:
+              raise SystemExit('main.js config insertion point missing')
+          s = s.replace(anchor, mobile + anchor, 1)
+          old = "const warmup = params.get('prewarm') === '0' ? { ok: false, reason: 'disabled by ?prewarm=0' } : await prewarm(engine);"
+          new = "const isAndroidMobile = /Android/i.test(navigator.userAgent);\\nconst warmup = (isAndroidMobile || params.get('prewarm') === '0') ? { ok: false, reason: 'disabled for Android/mobile startup' } : await prewarm(engine);"
           if old not in s:
-              raise SystemExit('Could not find createConfig block in src/main.js')
-          s = s.replace(old, new, 1)
-          old_warm = "const warmup = params.get('prewarm') === '0' ? { ok: false, reason: 'disabled by ?prewarm=0' } : await prewarm(engine);"
-          new_warm = "const warmup = (isAndroidMobile || params.get('prewarm') === '0') ? { ok: false, reason: isAndroidMobile ? 'disabled on Android to reduce startup GPU pressure' : 'disabled by ?prewarm=0' } : await prewarm(engine);"
-          if old_warm not in s:
-              raise SystemExit('Could not find prewarm startup line in src/main.js')
-          main.write_text(s.replace(old_warm, new_warm, 1))
-
-          render = Path('src/render/index.js')
-          r = render.read_text()
-          old_pr = "const pr = Math.min(globalThis.devicePixelRatio || 1, 1.5);"
-          new_pr = "const pr = Math.min(globalThis.devicePixelRatio || 1, /Android/i.test(navigator.userAgent) ? 1 : 1.5);"
-          if old_pr not in r:
-              raise SystemExit('Could not find renderer pixel-ratio line')
-          render.write_text(r.replace(old_pr, new_pr, 1))
-          print('Applied Android low-memory startup profile and skipped shader prewarm on Android.')
+              raise SystemExit('main.js prewarm line missing')
+          p.write_text(s.replace(old, new, 1))
+          p = Path('src/render/index.js')
+          s = p.read_text()
+          old = "const pr = Math.min(globalThis.devicePixelRatio || 1, 1.5);"
+          new = "const pr = Math.min(globalThis.devicePixelRatio || 1, /Android/i.test(navigator.userAgent) ? 1 : 1.5);"
+          if old not in s:
+              raise SystemExit('renderer pixel ratio line missing')
+          p.write_text(s.replace(old, new, 1))
+          print('Android startup safeguards applied')
           PY
 
       - name: Install dependencies

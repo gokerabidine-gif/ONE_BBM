@@ -71,12 +71,12 @@ jobs:
           p = Path('src/main.js')
           s = p.read_text()
           anchor = "const canvas = document.getElementById('game');"
-          mobile = "if (/Android/i.test(navigator.userAgent)) Object.assign(config.q, { renderScale: 0.55, shadowMapSize: 512, cascades: 1, shadowDistance: 55, drawDistance: 650, streamRadius: 120, particleBudget: 700, decalBudget: 24, anisotropy: 2, trafficBudget: 4, pedBudget: 6 });\\n\\n"
+          mobile = "if (/Android/i.test(navigator.userAgent)) Object.assign(config.q, { renderScale: 0.55, shadowMapSize: 512, cascades: 1, shadowDistance: 55, drawDistance: 650, streamRadius: 120, particleBudget: 700, decalBudget: 24, anisotropy: 2, trafficBudget: 4, pedBudget: 6 });\n\n"
           if anchor not in s:
               raise SystemExit('main.js config insertion point missing')
           s = s.replace(anchor, mobile + anchor, 1)
           old = "const warmup = params.get('prewarm') === '0' ? { ok: false, reason: 'disabled by ?prewarm=0' } : await prewarm(engine);"
-          new = "const isAndroidMobile = /Android/i.test(navigator.userAgent);\\nconst warmup = (isAndroidMobile || params.get('prewarm') === '0') ? { ok: false, reason: 'disabled for Android/mobile startup' } : await prewarm(engine);"
+          new = "const isAndroidMobile = /Android/i.test(navigator.userAgent);\nconst warmup = (isAndroidMobile || params.get('prewarm') === '0') ? { ok: false, reason: 'disabled for Android/mobile startup' } : await prewarm(engine);"
           if old not in s:
               raise SystemExit('main.js prewarm line missing')
           p.write_text(s.replace(old, new, 1))

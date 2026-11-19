@@ -1,0 +1,97 @@
+name: Build ONE BBM Android APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, master]
+
+permissions:
+  contents: read
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Prepare project source
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p source
+          if [ -f "ONE-BBM-upload-light.zip" ]; then
+            unzip -q "ONE-BBM-upload-light.zip" -d source
+          else
+            echo "Expected ONE-BBM-upload-light.zip in repository root" >&2
+            exit 1
+          fi
+          PROJECT_DIR="$(find source -type f -name package.json -not -path '*/node_modules/*' -printf '%h\n' | head -n 1)"
+          if [ -z "$PROJECT_DIR" ]; then
+            echo "package.json was not found inside the uploaded archive" >&2
+            exit 1
+          fi
+          echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
+          echo "Using project directory: $PROJECT_DIR"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: ''
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install dependencies
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: npm install --no-audit --no-fund
+
+      - name: Validate and build web game
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: |
+          npm run lint --if-present
+          npm run build
+
+      - name: Generate Android project
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: npx cap add android
+
+      - name: Sync web assets
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: npx cap sync android
+
+      - name: Lock app to landscape
+        working-directory: ${{ env.PROJECT_DIR }}
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          p = Path('android/app/src/main/AndroidManifest.xml')
+          s = p.read_text()
+          m = re.search(r'<activity\\b[^>]*>', s, re.S)
+          if not m:
+              raise SystemExit('Main activity not found in AndroidManifest.xml')
+          tag = re.sub(r'\\s+android:screenOrientation="[^"]*"', '', m.group(0))
+          tag = tag[:-1] + ' android:screenOrientation="landscape">'
+          p.write_text(s[:m.start()] + tag + s[m.end():])
+          PY
+
+      - name: Build debug APK
+        working-directory: ${{ env.PROJECT_DIR }}/android
+        run: ./gradlew assembleDebug
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: ONE-BBM-debug-apk
+          path: ${{ env.PROJECT_DIR }}/android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 14

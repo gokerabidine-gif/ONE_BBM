@@ -11,6 +11,9 @@ permissions:
 jobs:
   build-apk:
     runs-on: ubuntu-latest
+    env:
+      ANDROID_HOME: /usr/local/lib/android/sdk
+      ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -45,8 +48,22 @@ jobs:
           distribution: temurin
           java-version: '21'
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
+      - name: Install Android SDK packages
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          if [ ! -x "$SDKMANAGER" ]; then
+            SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | sort | tail -n 1)"
+          fi
+          if [ -z "$SDKMANAGER" ] || [ ! -x "$SDKMANAGER" ]; then
+            echo "Android sdkmanager not found" >&2
+            exit 1
+          fi
+          yes | "$SDKMANAGER" --licenses >/dev/null
+          "$SDKMANAGER" "platform-tools" "platforms;android-35" "build-tools;35.0.0"
+          echo "$ANDROID_HOME/platform-tools" >> "$GITHUB_PATH"
+          echo "$ANDROID_HOME/build-tools/35.0.0" >> "$GITHUB_PATH"
 
       - name: Install dependencies
         working-directory: ${{ env.PROJECT_DIR }}
@@ -75,10 +92,10 @@ jobs:
           import re
           p = Path('android/app/src/main/AndroidManifest.xml')
           s = p.read_text()
-          m = re.search(r'<activity\b[^>]*>', s, re.S)
+          m = re.search(r'<activity\\b[^>]*>', s, re.S)
           if not m:
               raise SystemExit('Main activity not found in AndroidManifest.xml')
-          tag = re.sub(r'\s+android:screenOrientation="[^"]*"', '', m.group(0))
+          tag = re.sub(r'\\s+android:screenOrientation="[^"]*"', '', m.group(0))
           tag = tag[:-1] + ' android:screenOrientation="landscape">'
           p.write_text(s[:m.start()] + tag + s[m.end():])
           PY

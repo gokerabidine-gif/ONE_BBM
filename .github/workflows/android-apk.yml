@@ -98,15 +98,14 @@ jobs:
           from pathlib import Path
           p = Path('src/ui/touch.js')
           s = p.read_text()
-          old = "    const row2 = el('div', 'ow-trow', this.btns);\\n    const row3 = el('div', 'ow-trow', this.btns);\\n\\n    this.bAim = this._button(row1, 'aim', 'AIM', 'aim');\\n    this.bWep = this._button(row1, 'wep', 'WEP', 'wep');"
-          new = "    const row2 = el('div', 'ow-trow', this.btns);\\n\\n    this.bAim = this._button(row1, 'aim', 'AIM', 'aim');\\n    this.bSlide = this._button(row1, 'slide', 'SLIDE', 'slide');\\n    this.bWep = this._button(row1, 'wep', 'WEP', 'wep');"
-          if old in s:
-              s = s.replace(old, new, 1)
-          elif "this.bSlide = this._button(row1, 'slide', 'SLIDE', 'slide');" not in s:
-              raise SystemExit('Phase 8 control layout patch did not match source')
-          old2 = "    this.bFire = this._button(row2, 'fire', 'FIRE', 'fire');\\n    this.bSlide = this._button(row3, 'slide', 'SLIDE', 'slide');"
-          if old2 in s:
-              s = s.replace(old2, "    this.bFire = this._button(row2, 'fire', 'FIRE', 'fire');", 1)
+          s = s.replace("    const row3 = el('div', 'ow-trow', this.btns);\\n", "", 1)
+          aim = "    this.bAim = this._button(row1, 'aim', 'AIM', 'aim');\\n"
+          slide = "    this.bSlide = this._button(row1, 'slide', 'SLIDE', 'slide');\\n"
+          if slide not in s:
+              if aim not in s:
+                  raise SystemExit('AIM button line not found')
+              s = s.replace(aim, aim + slide, 1)
+          s = s.replace("    this.bSlide = this._button(row3, 'slide', 'SLIDE', 'slide');\\n", "", 1)
           s = s.replace('    // btn row + fire row + the gap between them, from the stylesheet.\\n', '    // Two control rows (slide is beside AIM) + their gap, from the stylesheet.\\n', 1)
           p.write_text(s)
           print('Phase 8 slide button layout applied')

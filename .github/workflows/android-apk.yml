@@ -317,11 +317,13 @@ jobs:
           p.write_text(s)
 
           p = Path('package.json')
-          pkg = json.loads(p.read_text())
+          raw = p.read_text()
+          if raw.endswith(chr(92) + 'n'): raw = raw[:-2]
+          pkg = json.loads(raw)
           probe = 'node src/buildings/qualityprobe.mjs'
           if probe not in pkg['scripts']['build']:
               pkg['scripts']['build'] = pkg['scripts']['build'].replace(' && vite build', f' && {probe} && vite build')
-          p.write_text(json.dumps(pkg, indent=2) + '\\n')
+          p.write_text(json.dumps(pkg, indent=2) + chr(10))
           print('ONE BBM V2 in-game visual detail upgrade applied')
           PY
 

@@ -3,7 +3,7 @@ name: Build ONE BBM Android APK
 on:
   workflow_dispatch:
   push:
-    branches: [main, master]
+    branches: [main, master, 'fix/player-movement-and-visual-quality']
 
 permissions:
   contents: read

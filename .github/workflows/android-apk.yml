@@ -1,8 +1,8 @@
 name: Build ONE BBM Android APK
-run-name: ONE BBM V1 — Graphics & FPS
+run-name: ONE BBM V2 — In-game Visual Upgrade
 
 env:
-  ONE_BBM_VERSION: V1
+  ONE_BBM_VERSION: V2
 
 on:
   workflow_dispatch:
@@ -44,7 +44,7 @@ jobs:
       - name: Upload extracted project source
         uses: actions/upload-artifact@v4
         with:
-          name: ONE-BBM-V1-source
+          name: ONE-BBM-V2-source
           path: ONE-BBM-extracted-source.zip
           if-no-files-found: error
           retention-days: 7
@@ -76,7 +76,7 @@ jobs:
       - name: Upload character model source
         uses: actions/upload-artifact@v4
         with:
-          name: ONE-BBM-V1-character-model
+          name: ONE-BBM-V2-character-model
           path: ONE-BBM-character-model-source.zip
           if-no-files-found: error
           retention-days: 7
@@ -229,6 +229,110 @@ jobs:
           print('Android quality/frame-pacing fixes applied')
           PY
 
+      - name: Apply V2 in-game visual detail upgrade
+        working-directory: ${{ env.PROJECT_DIR }}
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import json
+
+          quality = Path('src/buildings/quality.js')
+          s = quality.read_text()
+          if 'export function facadeLodScale' not in s:
+              s += """
+          /**
+           * Per-building LOD compensation. Keeps facade bands readable slightly
+           * farther away without increasing the streamed city radius.
+           */
+          export function facadeLodScale(quality) {
+            if (quality === 'ultra') return 1.16;
+            if (quality === 'high') return 1.12;
+            if (quality === 'medium') return 1.08;
+            return 1.03;
+          }
+          """
+          quality.write_text(s)
+
+          p = Path('src/buildings/index.js')
+          s = p.read_text()
+          old = "import { farFacadeDetailDistance } from './quality.js';"
+          new = "import { farFacadeDetailDistance, facadeLodScale } from './quality.js';"
+          if old in s: s = s.replace(old, new, 1)
+          elif new not in s: raise SystemExit('Buildings quality import not found')
+          old = """        lodDistance: this.farDetailDist,
+                  lodCenter: [rec.cx, this._groundAt(rec.cx, rec.cz) + 10, rec.cz],"""
+          new = """        lodDistance: this.farDetailDist,
+                  lodScale: facadeLodScale(this.ctx.config.quality),
+                  lodCenter: [rec.cx, this._groundAt(rec.cx, rec.cz) + 10, rec.cz],"""
+          if old in s: s = s.replace(old, new, 1)
+          elif 'lodScale: facadeLodScale(this.ctx.config.quality)' not in s:
+              raise SystemExit('Building tile LOD options not found')
+          p.write_text(s)
+
+          p = Path('src/buildings/tile.js')
+          s = p.read_text()
+          old = """      lodNode.name = `bl_${this.name}`;
+                lodNode.autoUpdate = false;
+                const near = new THREE.Group();"""
+          new = """      lodNode.name = `bl_${this.name}`;
+                lodNode.autoUpdate = false;
+                lodNode.userData.owLodScale = Math.max(1, Math.min(1.2, Number(opts.lodScale) || 1));
+                const near = new THREE.Group();"""
+          if old in s: s = s.replace(old, new, 1)
+          elif 'lodNode.userData.owLodScale = Math.max(1, Math.min(1.2, Number(opts.lodScale) || 1));' not in s:
+              raise SystemExit('TileBuilder LOD node insertion point not found')
+          p.write_text(s)
+
+          p = Path('src/buildings/qualityprobe.mjs')
+          s = p.read_text()
+          s = s.replace("import { farFacadeDetailDistance } from './quality.js';",
+                        "import { farFacadeDetailDistance, facadeLodScale } from './quality.js';")
+          if 'facadeLodScale(\'medium\')' not in s:
+              s += """
+          assert.equal(facadeLodScale('low'), 1.03);
+          assert.equal(facadeLodScale('medium'), 1.08);
+          assert.equal(facadeLodScale('high'), 1.12);
+          assert.equal(facadeLodScale('ultra'), 1.16);
+          console.log('facade LOD scale probe: 4 assertions passed');
+          """
+          p.write_text(s)
+
+          p = Path('src/player/character/index.js')
+          s = p.read_text()
+          old = """      extRoot.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; if (o.material) o.material.roughness = Math.max(0.58, o.material.roughness ?? 0.7); } });"""
+          new = """      const renderSystem = this.ctx.peek?.('render');
+                const maxAnisotropy = Math.max(1, Math.min(8, renderSystem?.renderer?.capabilities?.getMaxAnisotropy?.() ?? 1));
+                extRoot.traverse(o => {
+                  if (!o.isMesh) return;
+                  o.castShadow = true;
+                  o.receiveShadow = true;
+                  const materials = Array.isArray(o.material) ? o.material : [o.material];
+                  for (const material of materials) {
+                    if (!material) continue;
+                    material.roughness = Math.max(0.58, material.roughness ?? 0.7);
+                    for (const slot of ['map', 'normalMap', 'roughnessMap', 'metalnessMap', 'aoMap']) {
+                      const texture = material[slot];
+                      if (!texture) continue;
+                      texture.anisotropy = maxAnisotropy;
+                      texture.needsUpdate = true;
+                    }
+                  }
+                });"""
+          if old in s: s = s.replace(old, new, 1)
+          elif 'const maxAnisotropy = Math.max(1, Math.min(8' not in s:
+              raise SystemExit('Realistic character material block not found')
+          p.write_text(s)
+
+          p = Path('package.json')
+          pkg = json.loads(p.read_text())
+          probe = 'node src/buildings/qualityprobe.mjs'
+          if probe not in pkg['scripts']['build']:
+              pkg['scripts']['build'] = pkg['scripts']['build'].replace(' && vite build', f' && {probe} && vite build')
+          p.write_text(json.dumps(pkg, indent=2) + '\\n')
+          print('ONE BBM V2 in-game visual detail upgrade applied')
+          PY
+
       - name: Persist tuned Android source archive
         working-directory: ${{ env.PROJECT_DIR }}
         continue-on-error: true
@@ -297,7 +401,7 @@ jobs:
         continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
-          name: ONE-BBM-V1-runtime-test
+          name: ONE-BBM-V2-runtime-test
           path: ${{ env.PROJECT_DIR }}/onebbm-runtime.png
           if-no-files-found: error
           retention-days: 7
@@ -335,12 +439,12 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          cp "$PROJECT_DIR/android/app/build/outputs/apk/debug/app-debug.apk" "$GITHUB_WORKSPACE/ONE-BBM-V1.apk"
+          cp "$PROJECT_DIR/android/app/build/outputs/apk/debug/app-debug.apk" "$GITHUB_WORKSPACE/ONE-BBM-${ONE_BBM_VERSION}.apk"
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: ONE-BBM-V1-APK
-          path: ONE-BBM-V1.apk
+          name: ONE-BBM-V2-APK
+          path: ONE-BBM-V2.apk
           if-no-files-found: error
           retention-days: 14

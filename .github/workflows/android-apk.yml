@@ -143,11 +143,8 @@ jobs:
           import re
           p = Path('src/core/governor.js')
           s = p.read_text()
-          old = "constructor({ targetMs = 16.7, slowMs = 23, fastMs = 11, allowTierChange = true } = {}) {"
-          new = "constructor({ targetMs = 16.7, slowMs = 17.8, fastMs = 14, allowTierChange = true } = {}) {"
-          if old in s:
-              s = s.replace(old, new, 1)
-          elif new not in s:
+          expected = "constructor({ targetMs = 16.7, slowMs = 23, fastMs = 11, allowTierChange = true } = {}) {"
+          if expected not in s:
               raise SystemExit('Governor constructor signature changed unexpectedly')
           s = s.replace("    this.minScale = 0.84;\n", """    // Dynamic resolution must be available below the medium preset too.
             this.minScale = 0.62;
@@ -186,6 +183,16 @@ jobs:
           """
               s = s[:start] + mobile_block + s[end:]
           p.write_text(s)
+          main = Path('src/main.js')
+          ms = main.read_text()
+          old_call = "  const gov = new Governor({ allowTierChange: !explicitQ });"
+          new_call = """  const mobileDevice = /Android|iPhone|iPad/i.test(navigator.userAgent || '');
+            const gov = new Governor({ allowTierChange: !explicitQ, slowMs: mobileDevice ? 17.8 : 23, fastMs: mobileDevice ? 14 : 11 });"""
+          if old_call in ms:
+              ms = ms.replace(old_call, new_call, 1)
+          elif "slowMs: mobileDevice ? 17.8" not in ms:
+              raise SystemExit('Governor boot call changed unexpectedly')
+          main.write_text(ms)
           pkg = Path('package.json')
           ps = pkg.read_text()
           old_build = '"build": "node tools/lintticks.mjs && vite build"'
@@ -208,7 +215,7 @@ jobs:
             mock({ua:'Android 12',memory:4,cores:4}); assert.equal(detectTier(),'low');
             mock({ua:'Android 14',renderer:'Mali-G615 MC6'}); assert.equal(detectTier(),'medium');
             mock({ua:'Windows',renderer:'NVIDIA RTX 4060'}); globalThis.devicePixelRatio=1; assert.equal(detectTier(),'high');
-            const g=new Governor(); let n=0; g._apply({resize:()=>n++,events:{emit:()=>n++}});
+            const g=new Governor({slowMs:17.8,fastMs:14}); let n=0; g._apply({resize:()=>n++,events:{emit:()=>n++}});
             assert.equal(n,1); assert.equal(g.slowMs,17.8);
             console.log('Mobile tier detection + governor resize path: PASS');
           } finally {

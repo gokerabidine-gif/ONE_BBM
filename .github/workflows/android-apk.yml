@@ -122,7 +122,7 @@ jobs:
           p = Path('src/main.js')
           s = p.read_text()
           anchor = "const canvas = document.getElementById('game');"
-          mobile = "if (/Android/i.test(navigator.userAgent)) Object.assign(config.q, { renderScale: 0.68, shadowMapSize: 768, cascades: 1, shadowDistance: 65, drawDistance: 700, streamRadius: 75, tileBuildBudgetMs: 4, particleBudget: 350, decalBudget: 16, anisotropy: 2, trafficBudget: 2, pedBudget: 0 });\n\n"
+          mobile = "if (/Android/i.test(navigator.userAgent)) Object.assign(config.q, { renderScale: 0.82, shadowMapSize: 1024, cascades: 1, shadowDistance: 75, drawDistance: 800, particleBudget: 850, decalBudget: 36, anisotropy: 4, pedBudget: 0 });\n\n"
           if anchor not in s:
               raise SystemExit('main.js config insertion point missing')
           s = s.replace(anchor, mobile + anchor, 1)
@@ -137,7 +137,7 @@ jobs:
           p = Path('src/render/index.js')
           s = p.read_text()
           old = "const pr = Math.min(globalThis.devicePixelRatio || 1, 1.5);"
-          new = "const pr = Math.min(globalThis.devicePixelRatio || 1, /Android/i.test(navigator.userAgent) ? 1 : 1.5);"
+          new = "const pr = Math.min(globalThis.devicePixelRatio || 1, /Android/i.test(navigator.userAgent) ? 1.25 : 1.5);"
           if old not in s:
               raise SystemExit('renderer pixel ratio line missing')
           p.write_text(s.replace(old, new, 1))

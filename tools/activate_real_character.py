@@ -32,6 +32,12 @@ if "GLTFLoader" not in s:
 '''
  s=s.replace("  _material(name) {", method+"\n  _material(name) {")
  s=s.replace("    if (this.root?.parent) this.root.parent.remove(this.root);", "    this._externalLoadToken++; if (this.externalRoot?.parent) this.externalRoot.parent.remove(this.externalRoot); this.externalRoot=null; this.externalBones=null;\n    if (this.root?.parent) this.root.parent.remove(this.root);")
+ # Explicit call-site patch: the original insertion anchor was incorrect.
+ call_anchor = "    this.root.visible = this.visible;\n    return this.root;"
+ if call_anchor in s and "this._loadRealisticModel(spec.id);" not in s:
+  s = s.replace(call_anchor, "    this.root.visible = this.visible;\n    this._loadRealisticModel(spec.id);\n    return this.root;", 1)
+ if "this._loadRealisticModel(spec.id);" not in s:
+  raise SystemExit('Failed to add realistic model loader call')
  p.write_text(s)
 p=project/'src/player/anim/animator.js'; s=p.read_text()
 if 'rig.syncExternalPose?.();' not in s:

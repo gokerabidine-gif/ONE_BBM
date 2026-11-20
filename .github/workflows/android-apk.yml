@@ -45,6 +45,27 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
+      - name: Export character model source
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p character-model-source
+          if [ ! -f man-base-character.fbx.txt ]; then
+            echo "Character FBX file is missing from repository" >&2
+            exit 1
+          fi
+          cp man-base-character.fbx.txt character-model-source/man-base-character.fbx
+          cp man-base-character.fbx.txt.zip character-model-source/man-base-character.fbx.zip
+          zip -qr ONE-BBM-character-model-source.zip character-model-source
+
+      - name: Upload character model source
+        uses: actions/upload-artifact@v4
+        with:
+          name: ONE-BBM-character-model-source
+          path: ONE-BBM-character-model-source.zip
+          if-no-files-found: error
+          retention-days: 7
+
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:

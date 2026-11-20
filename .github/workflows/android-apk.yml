@@ -594,6 +594,61 @@ jobs:
           print('V6 empty-city RP: all NPC creation paths disabled; vehicle systems untouched')
           PY
 
+      - name: V7 direct city entry without missions or cutscenes
+        working-directory: ${{ env.PROJECT_DIR }}
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('src/game/index.js')
+          s = p.read_text()
+          # The RP build has no story, side-job, intro-briefing, or staging-ring flow.
+          replacements = [
+            ("  _onEnterWorld(e) {\n    if (e?.phase !== 'play') return;",
+             "  _onEnterWorld(e) {\n    // ONE BBM RP: boot handover goes straight into the live city; no briefing/cutscene.\n    this._announceArmed = false;\n    this._pendingChapter = -1;\n    if (e?.phase !== 'play') return;\n    return;"),
+            ("  _syncRings(dt, rx, rz, held) {\n    const rings = this.freeroam?.rings;",
+             "  _syncRings(dt, rx, rz, held) {\n    const rings = this.freeroam?.rings;\n    if (rings) rings.clear();\n    this._ringsOn = false;\n    this._publishRingMarker(true);\n    return;"),
+            ("  startMission(index = this._pendingChapter) {\n    if (this.missions.active) return null;",
+             "  startMission(index = this._pendingChapter) {\n    return null; // ONE BBM RP: story missions removed."),
+            ("  takeJob(id) {\n    return this.jobs.start(id);",
+             "  takeJob(id) {\n    return null; // ONE BBM RP: scripted side jobs removed."),
+          ]
+          for old, new in replacements:
+            if old in s:
+              s = s.replace(old, new, 1)
+            elif new not in s:
+              raise SystemExit('RP direct-entry patch anchor missing: ' + old.splitlines()[0])
+          # No delayed chapter toast or story prompt may appear after boot.
+          old = "  _announceNext() {\n    const n = this.nextChapter();"
+          new = "  _announceNext() {\n    this._announceArmed = false;\n    this._pendingChapter = -1;\n    return;\n    const n = this.nextChapter();"
+          if old in s: s = s.replace(old, new, 1)
+          elif "this._pendingChapter = -1;\n    return;\n    const n = this.nextChapter();" not in s:
+            raise SystemExit('RP announcement patch anchor missing')
+          required = ["boot handover goes straight into the live city", "story missions removed", "scripted side jobs removed", "this._ringsOn = false;"]
+          for token in required:
+            if token not in s: raise SystemExit('RP direct-entry guard missing: ' + token)
+          p.write_text(s)
+          Path('src/game/rpentryprobe.mjs').write_text("""import assert from 'node:assert/strict';
+          import { readFile } from 'node:fs/promises';
+          const s = await readFile(new URL('./index.js', import.meta.url), 'utf8');
+          assert.match(s, /boot handover goes straight into the live city/);
+          assert.match(s, /story missions removed/);
+          assert.match(s, /scripted side jobs removed/);
+          assert.match(s, /this\\._ringsOn = false;/);
+          assert.match(s, /this\\._announceArmed = false;\\n    this\\._pendingChapter = -1;\\n    return;/);
+          console.log('RP direct city entry probe: 5 assertions passed');
+          """)
+          import json
+          pkg = Path('package.json')
+          data = json.loads(pkg.read_text())
+          build = data['scripts']['build']
+          gate = 'node src/game/rpentryprobe.mjs'
+          if gate not in build:
+            data['scripts']['build'] = build.replace(' && vite build', f' && {gate} && vite build')
+          pkg.write_text(json.dumps(data, indent=2) + '\n')
+          print('RP direct entry enabled: no briefing, missions, side jobs, or staging rings')
+          PY
+
       - name: Persist tuned Android source archive
         working-directory: ${{ env.PROJECT_DIR }}
         continue-on-error: true

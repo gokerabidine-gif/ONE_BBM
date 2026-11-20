@@ -515,7 +515,7 @@ jobs:
           # hostiles, and police actors are disabled at their owning systems.
           main = Path('src/main.js')
           ms = main.read_text()
-          marker = "          if (capture) {"
+          marker = "if (capture) {"
           if "config.q.pedBudget = 0; // ONE BBM V6" not in ms:
               if marker not in ms:
                   raise SystemExit('main config marker missing')

@@ -122,7 +122,7 @@ jobs:
           p = Path('src/main.js')
           s = p.read_text()
           anchor = "const canvas = document.getElementById('game');"
-          mobile = "if (/Android/i.test(navigator.userAgent)) { config.setQuality('ultra'); Object.assign(config.q, { renderScale: 1.18, shadowMapSize: 4096, cascades: 4, shadowDistance: 430, drawDistance: 6000, streamRadius: 1000, tileBuildBudgetMs: 8, particleBudget: 24000, decalBudget: 512, anisotropy: 16, trafficBudget: 76, pedBudget: 0, lodBias: 0.85, grassDensity: 1.0, gtao: true, ssr: true, volumetrics: true, motionBlur: true }); }\n\n"
+          mobile = "const isAndroidMobile = /Android/i.test(navigator.userAgent); if (isAndroidMobile) { config.setQuality('ultra'); Object.assign(config.q, { renderScale: 1.18, shadowMapSize: 4096, cascades: 4, shadowDistance: 430, drawDistance: 6000, streamRadius: 1000, tileBuildBudgetMs: 8, particleBudget: 24000, decalBudget: 512, anisotropy: 16, trafficBudget: 76, pedBudget: 0, lodBias: 0.85, grassDensity: 1.0, gtao: true, ssr: true, volumetrics: true, motionBlur: true }); }\n\n"
           if anchor not in s:
               raise SystemExit('main.js config insertion point missing')
           s = s.replace(anchor, mobile + anchor, 1)
@@ -133,9 +133,24 @@ jobs:
           gov = "if (!capture && params.get('gov') !== '0') {"
           if gov not in s:
               raise SystemExit('governor insertion point missing')
-          s = s.replace(gov, "if (!capture && params.get('gov') !== '0' && !/Android/i.test(navigator.userAgent)) {", 1)
+          s = s.replace(gov, "if (!capture && params.get('gov') !== '0') {", 1)
+          s = s.replace("const gov = new Governor({ allowTierChange: !explicitQ });", "const gov = new Governor({ allowTierChange: !explicitQ && !isAndroidMobile }); if (isAndroidMobile) { gov.minScale = 0.62; gov.targetMs = 20; gov.slowMs = 22; gov._warmup = 24; gov.ignoreStreamingBusy = true; }", 1)
+          # Android governor adjusts only framebuffer resolution: preserve preset/effects/materials and never tier-drop.
+          const governorPath = Path('src/core/governor.js')
+          g = governorPath.read_text()
+          oldBusy = "if (world && typeof world.streamingIdle === 'function' && !world.streamingIdle()) return;"
+          newBusy = "if (world && typeof world.streamingIdle === 'function' && !world.streamingIdle() && !this.ignoreStreamingBusy) return;"
+          if oldBusy not in g: raise SystemExit('governor streaming guard anchor missing')
+          g = g.replace(oldBusy, newBusy, 1)
+          governorPath.write_text(g)
+          # Set the Android render-resolution governor's minimum to a safety floor only.
+          oldWarm = "this._warmup = 60;"
+          newWarm = "this._warmup = 60;"
+          if oldWarm not in g: raise SystemExit('governor warmup anchor missing')
+          # Keep base governor unchanged; Android override is applied by main.js.
+          p.write_text(s)
           old = "const warmup = params.get('prewarm') === '0' ? { ok: false, reason: 'disabled by ?prewarm=0' } : await prewarm(engine);"
-          new = "const isAndroidMobile = /Android/i.test(navigator.userAgent);\nconst warmup = (isAndroidMobile || params.get('prewarm') === '0') ? { ok: false, reason: 'disabled for Android/mobile startup' } : await prewarm(engine);"
+          new = "const warmup = (isAndroidMobile || params.get('prewarm') === '0') ? { ok: false, reason: 'disabled for Android/mobile startup' } : await prewarm(engine);"
           if old not in s:
               raise SystemExit('main.js prewarm line missing')
           p.write_text(s.replace(old, new, 1))

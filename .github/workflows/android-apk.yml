@@ -134,6 +134,90 @@ jobs:
           print('Phase 8 slide button layout applied')
           PY
 
+      - name: Apply Android quality and frame-pacing fixes
+        working-directory: ${{ env.PROJECT_DIR }}
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('src/core/governor.js')
+          s = p.read_text()
+          old = "constructor({ targetMs = 16.7, slowMs = 23, fastMs = 11, allowTierChange = true } = {}) {"
+          new = "constructor({ targetMs = 16.7, slowMs = 17.8, fastMs = 14, allowTierChange = true } = {}) {"
+          if old in s:
+              s = s.replace(old, new, 1)
+          elif new not in s:
+              raise SystemExit('Governor constructor signature changed unexpectedly')
+          s = s.replace("    this.minScale = 0.84;\n", """    // Dynamic resolution must be available below the medium preset too.
+            this.minScale = 0.62;
+          """, 1)
+          old = "    const cfg = engine.config;\n    const render = engine.ctx?.peek?.('render');"
+          new = """    const cfg = engine.config;
+            const presetScale = QUALITY_PRESETS[cfg.quality]?.renderScale ?? 0.8;
+            this.minScale = Math.max(0.62, Math.min(0.84, presetScale * 0.82));
+            const render = engine.ctx?.peek?.('render');"""
+          if old in s:
+              s = s.replace(old, new, 1)
+          elif new not in s:
+              raise SystemExit('Governor update insertion point missing')
+          s = s.replace("    engine.resize?.();\n    engine.events?.emit?.('resize', { width: innerWidth, height: innerHeight });\n", """    // Engine.resize() already emits the resize event after systems rebuild.
+            // Emitting again resized event-driven targets twice and added hitches.
+            engine.resize?.();
+          """, 1)
+          old = """    if (/iPhone|iPad|Android/i.test(navigator.userAgent)) return 'low';
+            // Retina at 3.3 MP internal is a very different job from 1080p.
+            const px = innerWidth * innerHeight * Math.min(devicePixelRatio || 1, 2);
+          """
+          new = """    const ua = String(navigator.userAgent || '');
+            // Keep entry-level phones at low, but do not force capable Android
+            // hardware into the lowest geometry, traffic and lighting budgets.
+            if (/Android/i.test(ua)) {
+              const memory = Number(navigator.deviceMemory || 0);
+              const cores = Number(navigator.hardwareConcurrency || 0);
+              const capableGpu = /Mali-G[567]|Adreno \\(TM\\) 7|Adreno 7/i.test(r);
+              return (capableGpu || (memory >= 8 && cores >= 8)) ? 'medium' : 'low';
+            }
+            if (/iPhone|iPad/i.test(ua)) return 'low';
+            // Retina at 3.3 MP internal is a very different job from 1080p.
+            const px = innerWidth * innerHeight * Math.min(devicePixelRatio || 1, 2);
+          """
+          if old in s:
+              s = s.replace(old, new, 1)
+          elif new not in s:
+              raise SystemExit('Android tier detection block missing')
+          p.write_text(s)
+          pkg = Path('package.json')
+          ps = pkg.read_text()
+          old_build = '"build": "node tools/lintticks.mjs && vite build"'
+          new_build = '"build": "node src/core/tierprobe.mjs && node tools/lintticks.mjs && vite build"'
+          if old_build in ps:
+              ps = ps.replace(old_build, new_build, 1)
+          elif new_build not in ps:
+              raise SystemExit('package build script changed unexpectedly')
+          pkg.write_text(ps)
+          Path('src/core/tierprobe.mjs').write_text("""import assert from 'node:assert/strict';
+          import { detectTier, Governor } from './governor.js';
+          const saved = Object.fromEntries(['document','navigator','innerWidth','innerHeight','devicePixelRatio'].map(k => [k, Object.getOwnPropertyDescriptor(globalThis,k)]));
+          function mock({ua,memory=0,cores=0,renderer=''}) {
+            globalThis.document = { createElement: () => ({ getContext: () => ({ getExtension: () => ({UNMASKED_RENDERER_WEBGL:37445}), getParameter: () => renderer }) }) };
+            Object.defineProperty(globalThis,'navigator',{configurable:true,value:{userAgent:ua,deviceMemory:memory,hardwareConcurrency:cores}});
+            globalThis.innerWidth=1080; globalThis.innerHeight=2400; globalThis.devicePixelRatio=2;
+          }
+          try {
+            mock({ua:'Android 14',memory:8,cores:8}); assert.equal(detectTier(),'medium');
+            mock({ua:'Android 12',memory:4,cores:4}); assert.equal(detectTier(),'low');
+            mock({ua:'Android 14',renderer:'Mali-G615 MC6'}); assert.equal(detectTier(),'medium');
+            mock({ua:'Windows',renderer:'NVIDIA RTX 4060'}); globalThis.devicePixelRatio=1; assert.equal(detectTier(),'high');
+            const g=new Governor(); let n=0; g._apply({resize:()=>n++,events:{emit:()=>n++}});
+            assert.equal(n,1); assert.equal(g.slowMs,17.8);
+            console.log('Mobile tier detection + governor resize path: PASS');
+          } finally {
+            for (const [k,d] of Object.entries(saved)) { if(d) Object.defineProperty(globalThis,k,d); else delete globalThis[k]; }
+          }
+          """)
+          print('Android quality/frame-pacing fixes applied')
+          PY
+
       - name: Install dependencies
         working-directory: ${{ env.PROJECT_DIR }}
         run: npm install --no-audit --no-fund

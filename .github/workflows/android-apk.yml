@@ -77,6 +77,12 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
+      - name: Activate realistic player character replacement
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/activate_real_character.py "$PROJECT_DIR" "$GITHUB_WORKSPACE/character-model-source/man-base-character-rigged.glb"
+
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:

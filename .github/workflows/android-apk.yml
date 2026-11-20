@@ -140,6 +140,7 @@ jobs:
         run: |
           python3 - <<'PY'
           from pathlib import Path
+          import re
           p = Path('src/core/governor.js')
           s = p.read_text()
           old = "constructor({ targetMs = 16.7, slowMs = 23, fastMs = 11, allowTierChange = true } = {}) {"
@@ -164,10 +165,7 @@ jobs:
             // Emitting again resized event-driven targets twice and added hitches.
             engine.resize?.();
           """, 1)
-          old = """    if (/iPhone|iPad|Android/i.test(navigator.userAgent)) return 'low';
-            // Retina at 3.3 MP internal is a very different job from 1080p.
-            const px = innerWidth * innerHeight * Math.min(devicePixelRatio || 1, 2);
-          """
+          pattern = r"    if \(/iPhone\\|iPad\\|Android/i\\.test\\(navigator\\.userAgent\\)\\) return 'low';\\n\\s*// Retina at 3\\.3 MP internal is a very different job from 1080p\\.\\n\\s*const px = innerWidth \\* innerHeight \\* Math\\.min\\(devicePixelRatio \\|\\| 1, 2\\);"
           new = """    const ua = String(navigator.userAgent || '');
             // Keep entry-level phones at low, but do not force capable Android
             // hardware into the lowest geometry, traffic and lighting budgets.
@@ -181,10 +179,9 @@ jobs:
             // Retina at 3.3 MP internal is a very different job from 1080p.
             const px = innerWidth * innerHeight * Math.min(devicePixelRatio || 1, 2);
           """
-          if old in s:
-              s = s.replace(old, new, 1)
-          elif new not in s:
-              raise SystemExit('Android tier detection block missing')
+          s, count = re.subn(pattern, lambda _: new, s, count=1)
+          if count != 1:
+              if new not in s: raise SystemExit('Android tier detection block missing')
           p.write_text(s)
           pkg = Path('package.json')
           ps = pkg.read_text()

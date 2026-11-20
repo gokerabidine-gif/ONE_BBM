@@ -272,7 +272,7 @@ jobs:
           old = "      lodNode.name = `bl_${this.name}`;\\n      lodNode.autoUpdate = false;\\n      const near = new THREE.Group();"
           new = "      lodNode.name = `bl_${this.name}`;\\n      lodNode.autoUpdate = false;\\n      lodNode.userData.owLodScale = Math.max(1, Math.min(1.2, Number(opts.lodScale) || 1));\\n      const near = new THREE.Group();"
           if old in s: s = s.replace(old, new, 1)
-          elif 'lodNode.userData.owLodScale = Math.max(1, Math.min(1.2, Number(opts.lodScale) || 1));' not in s:
+          elif 'lodNode.userData.owLodScale' not in s:
               raise SystemExit('TileBuilder LOD node insertion point not found')
           p.write_text(s)
 

@@ -122,7 +122,7 @@ jobs:
           p = Path('src/main.js')
           s = p.read_text()
           anchor = "const canvas = document.getElementById('game');"
-          mobile = "if (/Android/i.test(navigator.userAgent)) Object.assign(config.q, { renderScale: 1.0, shadowMapSize: 2048, cascades: 3, shadowDistance: 75, drawDistance: 850, streamRadius: 150, particleBudget: 900, decalBudget: 40, anisotropy: 4, trafficBudget: 6, pedBudget: 10 });\n\n"
+          mobile = "if (/Android/i.test(navigator.userAgent)) Object.assign(config.q, { renderScale: 1.15, shadowMapSize: 3072, cascades: 3, shadowDistance: 110, drawDistance: 1100, streamRadius: 220, particleBudget: 1400, decalBudget: 80, anisotropy: 8, trafficBudget: 10, pedBudget: 16 });\n\n"
           if anchor not in s:
               raise SystemExit('main.js config insertion point missing')
           s = s.replace(anchor, mobile + anchor, 1)

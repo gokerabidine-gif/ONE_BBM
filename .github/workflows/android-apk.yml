@@ -154,7 +154,7 @@ if (gameCanvas) {
   }, false);
 }
 """
-          s = s.replace(anchor, s.replace(anchor, anchor, 1) + diag, 1)
+          s = s.replace(anchor, anchor + "\n" + diag, 1)
           old = "const warmup = params.get('prewarm') === '0' ? { ok: false, reason: 'disabled by ?prewarm=0' } : await prewarm(engine);"
           new = "const isAndroidMobile = /Android/i.test(navigator.userAgent);\nconst warmup = (isAndroidMobile || params.get('prewarm') === '0') ? { ok: false, reason: 'disabled for Android/mobile startup' } : await prewarm(engine);"
           if old not in s:

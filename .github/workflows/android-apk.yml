@@ -809,6 +809,99 @@ jobs:
           print('V9 RP: story, side jobs, races and assault runtime disabled; city free roam retained')
           PY
 
+      - name: Apply V10 thermal and frame-budget profile for Android
+        working-directory: ${{ env.PROJECT_DIR }}
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import json
+          main=Path('src/main.js'); s=main.read_text()
+          old="""if (mobileDevice && !explicitQ) Object.assign(config.q, {
+            renderScale: 0.74, shadowMapSize: 1024, cascades: 2, shadowDistance: 100,
+            taa: false, gtao: false, ssr: false, volumetrics: false, motionBlur: false,
+            bloom: true, anisotropy: 4, particleBudget: 2400, decalBudget: 72,
+            drawDistance: 1300, streamRadius: 240, tileBuildBudgetMs: 3,
+            lightSlots: 4, trafficBudget: 10, pedBudget: 24, lodBias: 1.65,
+            grassDensity: 0.30,
+          });"""
+          new="""if (mobileDevice && !explicitQ) Object.assign(config.q, {
+            // V10 thermal play profile: sustained stability over visual effects.
+            renderScale: 0.52, shadowMapSize: 512, cascades: 1, shadowDistance: 42,
+            taa: false, gtao: false, ssr: false, volumetrics: false, motionBlur: false,
+            bloom: false, anisotropy: 1, particleBudget: 400, decalBudget: 12,
+            drawDistance: 650, streamRadius: 135, tileBuildBudgetMs: 1.5,
+            lightSlots: 2, trafficBudget: 3, pedBudget: 0, lodBias: 3.0,
+            grassDensity: 0.06,
+          });"""
+          if old in s: s=s.replace(old,new,1)
+          elif 'renderScale: 0.52, shadowMapSize: 512' not in s: raise SystemExit('Mobile profile anchor missing')
+          main.write_text(s)
+
+          p=Path('src/core/governor.js'); s=p.read_text()
+          old="""      if (/Android/i.test(ua)) {
+                const memory = Number(navigator.deviceMemory || 0);
+                const cores = Number(navigator.hardwareConcurrency || 0);
+                const capableGpu = /Mali-G[567]|Adreno \\(TM\\) 7|Adreno 7/i.test(r);
+                return (capableGpu || (memory >= 8 && cores >= 8)) ? 'medium' : 'low';
+              }"""
+          if old in s: s=s.replace(old,"      if (/Android/i.test(ua)) return 'low'; // V10: prevent tier escalation.",1)
+          elif "V10: prevent tier escalation" not in s: raise SystemExit('Android tier block missing')
+          s=s.replace('this.minScale = 0.62;','this.minScale = 0.48;',1)
+          p.write_text(s)
+
+          p=Path('src/render/index.js'); s=p.read_text()
+          old="    const pr = Math.min(globalThis.devicePixelRatio || 1, 1.5);"
+          new="    const pr = /Android|iPhone|iPad/i.test(navigator.userAgent || '') ? 1 : Math.min(globalThis.devicePixelRatio || 1, 1.5); // V10 thermal profile"
+          if old in s: s=s.replace(old,new,1)
+          elif 'V10 thermal profile' not in s: raise SystemExit('Pixel ratio line missing')
+          p.write_text(s)
+
+          p=Path('src/core/engine.js'); s=p.read_text()
+          old="""  _loop(now) {
+            if (!this._running) return;
+            requestAnimationFrame(this._loop);
+            this.step(now);
+          }"""
+          new="""  _loop(now) {
+            if (!this._running) return;
+            requestAnimationFrame(this._loop);
+            if (/Android|iPhone|iPad/i.test(navigator.userAgent || '')) {
+              const cap = 1000 / 30;
+              if (this._mobileLoopLast && now - this._mobileLoopLast < cap) return;
+              this._mobileLoopLast = now;
+            }
+            this.step(now);
+          }"""
+          if old in s: s=s.replace(old,new,1)
+          elif '_mobileLoopLast' not in s: raise SystemExit('RAF loop anchor missing')
+          p.write_text(s)
+
+          p=Path('src/main.js'); s=p.read_text()
+          s=s.replace("slowMs: mobileDevice ? 19.5 : 23, fastMs: mobileDevice ? 14.5 : 11",
+                      "targetMs: mobileDevice ? 33.3 : 16.7, slowMs: mobileDevice ? 36 : 23, fastMs: mobileDevice ? 25 : 11",1)
+          p.write_text(s)
+
+          Path('src/core/v10thermalprobe.mjs').write_text("""import assert from 'node:assert/strict';
+          import { readFile } from 'node:fs/promises';
+          const [main,gov,render,engine] = await Promise.all([
+            readFile(new URL('../main.js',import.meta.url),'utf8'),
+            readFile(new URL('./governor.js',import.meta.url),'utf8'),
+            readFile(new URL('../render/index.js',import.meta.url),'utf8'),
+            readFile(new URL('./engine.js',import.meta.url),'utf8')
+          ]);
+          assert.match(main,/renderScale: 0\\.52/); assert.match(main,/trafficBudget: 3/); assert.match(main,/pedBudget: 0/);
+          assert.match(gov,/V10: prevent tier escalation/); assert.match(gov,/minScale = 0\\.48/);
+          assert.match(render,/V10 thermal profile/); assert.match(engine,/1000 \\/ 30/); assert.match(engine,/_mobileLoopLast/);
+          console.log('V10 thermal profile probe: 7 assertions passed');
+          """)
+          pkg=Path('package.json'); data=json.loads(pkg.read_text())
+          gate='node src/core/v10thermalprobe.mjs'
+          if gate not in data['scripts']['build']: data['scripts']['build']=data['scripts']['build'].replace(' && vite build',f' && {gate} && vite build')
+          pkg.write_text(json.dumps(data,indent=2)+'\\n')
+          print('V10 thermal/frame-budget profile applied')
+          PY
+
       - name: Persist tuned Android source archive
         working-directory: ${{ env.PROJECT_DIR }}
         continue-on-error: true

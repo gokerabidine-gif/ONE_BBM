@@ -226,6 +226,7 @@ jobs:
         working-directory: ${{ env.PROJECT_DIR }}
         shell: bash
         continue-on-error: true
+        timeout-minutes: 8
         run: |
           set -euo pipefail
           npx playwright install chromium

@@ -400,18 +400,43 @@ jobs:
               s = s.replace(ready_old, ready_new, 1)
           elif ready_new not in s:
               raise SystemExit('World ready gate anchor missing')
-          import re
-          # Match the actual _queueFarSectors block independent of indentation.
-          pattern = r"(  _queueFarSectors\\(\\) \\{[\\s\\S]*?)(this\\.queue\\.push\\(\\(\\) => \\{[\\s\\S]*?this\\.root\\.add\\(mesh\\);)([\\s\\S]*?\\}, 6\\);[\\s\\S]*?\\n  \\})"
-          m = re.search(pattern, s)
-          if m and "this._farPending++;" not in m.group(0):
-              body = m.group(2)
-              body = body.replace("this.queue.push(() => {", "this._farPending++;\\n        this.queue.push(() => {", 1)
-              body = body.replace("this.root.add(mesh);", "this.root.add(mesh);\\n          } finally {\\n            this._farPending = Math.max(0, this._farPending - 1);\\n          }", 1)
-              body = body.replace("        this.queue.push(() => {", "        this.queue.push(() => {\\n          try {", 1)
-              s = s[:m.start(2)] + body + m.group(3) + s[m.end(3):]
-          elif not m and "this._farPending++;" not in s:
-              raise SystemExit('Could not locate _queueFarSectors job block')
+          method_start = s.find("  _queueFarSectors() {")
+          if method_start < 0:
+              raise SystemExit('Actual _queueFarSectors method missing')
+          method_end = s.find("\n  /*", method_start)
+          if method_end < 0:
+              raise SystemExit('Could not locate end of _queueFarSectors method')
+          method = s[method_start:method_end]
+          if "this._farPending++;" not in method:
+              old_job = """        this.queue.push(() => {
+                  const mesh = this.roadMesh.buildFar(sx, sz);
+                  if (!mesh) return;
+                  this._far.set(`${sx},${sz}`, mesh);
+                  if (this._sectors.has(sx, sz)) {
+                    const rec = this._sectors.live.get(this._sectors.key(sx, sz));
+                    if (rec?.group) mesh.visible = false;
+                  }
+                  this.root.add(mesh);
+                }, 6);"""
+              new_job = """        this._farPending++;
+                this.queue.push(() => {
+                  try {
+                    const mesh = this.roadMesh.buildFar(sx, sz);
+                    if (!mesh) return;
+                    this._far.set(`${sx},${sz}`, mesh);
+                    if (this._sectors.has(sx, sz)) {
+                      const rec = this._sectors.live.get(this._sectors.key(sx, sz));
+                      if (rec?.group) mesh.visible = false;
+                    }
+                    this.root.add(mesh);
+                  } finally {
+                    this._farPending = Math.max(0, this._farPending - 1);
+                  }
+                }, 6);"""
+              if old_job not in method:
+                  raise SystemExit('Exact far-sector queue job block did not match source')
+              method = method.replace(old_job, new_job, 1)
+              s = s[:method_start] + method + s[method_end:]
           # Full streamingIdle remains strict: captures still wait for every horizon ribbon.
           if "this.queue.pending === 0 &&" not in s:
               raise SystemExit('Strict streamingIdle gate unexpectedly changed')

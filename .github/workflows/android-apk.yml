@@ -122,7 +122,7 @@ jobs:
           p = Path('src/main.js')
           s = p.read_text()
           anchor = "const canvas = document.getElementById('game');"
-          mobile = "if (/Android/i.test(navigator.userAgent)) { config.setQuality('high'); Object.assign(config.q, { renderScale: 0.92, shadowMapSize: 2048, cascades: 3, shadowDistance: 190, drawDistance: 2200, streamRadius: 440, tileBuildBudgetMs: 5, particleBudget: 8000, decalBudget: 160, anisotropy: 16, trafficBudget: 38, pedBudget: 0, lodBias: 1.4, grassDensity: 0.6, gtao: true, volumetrics: true, motionBlur: true }); }\n\n"
+          mobile = "if (/Android/i.test(navigator.userAgent)) { config.setQuality('ultra'); Object.assign(config.q, { renderScale: 1.18, shadowMapSize: 4096, cascades: 4, shadowDistance: 430, drawDistance: 6000, streamRadius: 1000, tileBuildBudgetMs: 8, particleBudget: 24000, decalBudget: 512, anisotropy: 16, trafficBudget: 76, pedBudget: 0, lodBias: 0.85, grassDensity: 1.0, gtao: true, ssr: true, volumetrics: true, motionBlur: true }); }\n\n"
           if anchor not in s:
               raise SystemExit('main.js config insertion point missing')
           s = s.replace(anchor, mobile + anchor, 1)
@@ -147,6 +147,26 @@ jobs:
               raise SystemExit('renderer pixel ratio line missing')
           p.write_text(s.replace(old, new, 1))
           print('Android startup safeguards applied')
+          PY
+
+      - name: Raise player character texture detail to HD resolution
+        working-directory: ${{ env.PROJECT_DIR }}
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('src/player/character/index.js')
+          s = p.read_text()
+          old = '      anisotropy: Math.min(8, q?.anisotropy ?? 8),'
+          new = '      anisotropy: Math.min(16, q?.anisotropy ?? 16),'
+          if old not in s: raise SystemExit('character anisotropy anchor missing')
+          s = s.replace(old, new, 1)
+          old = '      size: 256,'
+          new = '      size: 512,'
+          if old not in s: raise SystemExit('character texture-size anchor missing')
+          s = s.replace(old, new, 1)
+          p.write_text(s)
+          print('Player character procedural texture resolution raised 256->512; anisotropy 16')
           PY
 
       - name: Apply Phase 8 slide button layout

@@ -113,34 +113,6 @@ jobs:
           echo "$ANDROID_HOME/platform-tools" >> "$GITHUB_PATH"
           echo "$ANDROID_HOME/build-tools/35.0.0" >> "$GITHUB_PATH"
 
-      - name: Apply mobile startup safeguards
-        working-directory: ${{ env.PROJECT_DIR }}
-        shell: bash
-        run: |
-          python3 - <<'PY'
-          from pathlib import Path
-          p = Path('src/main.js')
-          s = p.read_text()
-          anchor = "const canvas = document.getElementById('game');"
-          mobile = "if (/Android/i.test(navigator.userAgent)) Object.assign(config.q, { renderScale: 1.15, shadowMapSize: 3072, cascades: 3, shadowDistance: 180, drawDistance: 1800, streamRadius: 380, tileBuildBudgetMs: 5, lodBias: 0.85, grassDensity: 0.85, particleBudget: 1800, decalBudget: 120, anisotropy: 16, trafficBudget: 10, pedBudget: 16 });\n\n"
-          if anchor not in s:
-              raise SystemExit('main.js config insertion point missing')
-          s = s.replace(anchor, mobile + anchor, 1)
-          old = "const warmup = params.get('prewarm') === '0' ? { ok: false, reason: 'disabled by ?prewarm=0' } : await prewarm(engine);"
-          new = "const isAndroidMobile = /Android/i.test(navigator.userAgent);\nconst warmup = (isAndroidMobile || params.get('prewarm') === '0') ? { ok: false, reason: 'disabled for Android/mobile startup' } : await prewarm(engine);"
-          if old not in s:
-              raise SystemExit('main.js prewarm line missing')
-          p.write_text(s.replace(old, new, 1))
-          p = Path('src/render/index.js')
-          s = p.read_text()
-          old = "const pr = Math.min(globalThis.devicePixelRatio || 1, 1.5);"
-          new = "const pr = Math.min(globalThis.devicePixelRatio || 1, /Android/i.test(navigator.userAgent) ? 2.0 : 2.0);"
-          if old not in s:
-              raise SystemExit('renderer pixel ratio line missing')
-          p.write_text(s.replace(old, new, 1))
-          print('Android startup safeguards applied')
-          PY
-
       - name: Apply Phase 8 slide button layout
         working-directory: ${{ env.PROJECT_DIR }}
         shell: bash

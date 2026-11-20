@@ -196,12 +196,22 @@ jobs:
             console.log('Character runtime status:', JSON.stringify(status));
             if (status.status !== 'loaded') throw new Error('Realistic player model did not load: ' + JSON.stringify(status));
             if ((status.bones ?? 0) < 15) throw new Error('Too few model bones mapped: ' + status.bones);
+            await page.screenshot({ path: 'onebbm-runtime.png', fullPage: true });
+            console.log('Captured runtime screenshot: onebbm-runtime.png');
             console.log('Realistic character model runtime smoke test PASSED');
           } finally {
             await browser.close();
           }
           if (errors.length) console.log('Browser console/page errors:', JSON.stringify(errors.slice(0, 10)));
           JS
+
+      - name: Upload runtime screenshot for visual inspection
+        uses: actions/upload-artifact@v4
+        with:
+          name: ONE-BBM-runtime-screenshot
+          path: ${{ env.PROJECT_DIR }}/onebbm-runtime.png
+          if-no-files-found: error
+          retention-days: 7
 
       - name: Generate Android project
         working-directory: ${{ env.PROJECT_DIR }}

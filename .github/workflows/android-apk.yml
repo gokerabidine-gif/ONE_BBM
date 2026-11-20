@@ -172,6 +172,37 @@ jobs:
           npm run lint --if-present
           npm run build
 
+      - name: Runtime-smoke-test realistic player model in Chromium
+        working-directory: ${{ env.PROJECT_DIR }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx playwright install --with-deps chromium
+          npm run preview -- --host 127.0.0.1 --port 4173 > /tmp/onebbm-preview.log 2>&1 &
+          PREVIEW_PID=$!
+          trap 'kill "$PREVIEW_PID" 2>/dev/null || true' EXIT
+          node --input-type=module <<'JS'
+          import { chromium } from 'playwright';
+          const browser = await chromium.launch({ headless: true, args: ['--use-gl=swiftshader', '--enable-webgl', '--ignore-gpu-blocklist'] });
+          const page = await browser.newPage();
+          const errors = [];
+          page.on('pageerror', e => errors.push(e.message));
+          page.on('console', m => { if (m.type() === 'error') errors.push(m.text()); });
+          try {
+            await page.goto('http://127.0.0.1:4173/', { waitUntil: 'domcontentloaded', timeout: 90000 });
+            await page.waitForFunction(() => window.__READY__ === true, null, { timeout: 120000 });
+            await page.waitForFunction(() => ['loaded', 'failed'].includes(window.__ONE_BBM_CHARACTER_MODEL__?.status), null, { timeout: 60000 });
+            const status = await page.evaluate(() => window.__ONE_BBM_CHARACTER_MODEL__);
+            console.log('Character runtime status:', JSON.stringify(status));
+            if (status.status !== 'loaded') throw new Error('Realistic player model did not load: ' + JSON.stringify(status));
+            if ((status.bones ?? 0) < 15) throw new Error('Too few model bones mapped: ' + status.bones);
+            console.log('Realistic character model runtime smoke test PASSED');
+          } finally {
+            await browser.close();
+          }
+          if (errors.length) console.log('Browser console/page errors:', JSON.stringify(errors.slice(0, 10)));
+          JS
+
       - name: Generate Android project
         working-directory: ${{ env.PROJECT_DIR }}
         run: npx cap add android

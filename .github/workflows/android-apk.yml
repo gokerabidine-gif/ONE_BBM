@@ -58,9 +58,14 @@ jobs:
           cp man-base-character.fbx.txt.zip character-model-source/man-base-character-static.fbx.zip
           # Grab3D's separate rigged variant is CC0; download for skeleton/skin inspection.
           if curl -L --fail --retry 2 --silent --show-error "https://grab3d.com/dl/man-base-character-rigged/man-base-character-rigged.fbx" -o character-model-source/man-base-character-rigged.fbx; then
-            echo "Rigged model downloaded"
+            echo "Rigged FBX downloaded"
           else
-            echo "Warning: rigged variant could not be downloaded; continuing with static model only"
+            echo "Warning: rigged FBX download failed"
+          fi
+          if curl -L --fail --retry 2 --silent --show-error "https://grab3d.com/dl/man-base-character-rigged/man-base-character-rigged.glb" -o character-model-source/man-base-character-rigged.glb; then
+            echo "Rigged GLB downloaded"
+          else
+            echo "Warning: rigged GLB download failed"
           fi
           zip -qr ONE-BBM-character-model-source.zip character-model-source
 

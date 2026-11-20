@@ -12,8 +12,12 @@ if "GLTFLoader" not in s:
   /** Async replacement body; procedural rig remains animation/IK driver. */
   async _loadRealisticModel(id) {
     const token = ++this._externalLoadToken;
+    let modelUrl = '';
     try {
-      const gltf = await new GLTFLoader().loadAsync('/models/player-realistic.glb');
+      modelUrl = new URL('models/player-realistic.glb', document.baseURI).href;
+      window.__ONE_BBM_CHARACTER_MODEL__ = { status: 'loading', url: modelUrl, character: id };
+      console.info('[ONE BBM] Loading realistic character model:', modelUrl);
+      const gltf = await new GLTFLoader().loadAsync(modelUrl);
       if (token !== this._externalLoadToken || this.spec?.id !== id || !this.root) return;
       const extRoot = gltf.scene; extRoot.name = 'realistic:' + id;
       extRoot.scale.multiplyScalar(this.spec?.build?.scale ?? 1);

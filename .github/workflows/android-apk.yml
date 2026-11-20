@@ -934,7 +934,7 @@ jobs:
           import { readFile } from 'node:fs/promises';
           const s = await readFile(new URL('./index.js', import.meta.url), 'utf8');
           assert.match(s, /V11: start near spawn/);
-          assert.ok(s.includes('(_streamRadiusCurrent ?? 60) + dt * 45'));
+          assert.ok(s.includes('(this._streamRadiusCurrent ?? 60) + dt * 45'));
           assert.ok(s.includes('_streamTiles(cx, cz, activeRadius)'));
           assert.ok(s.includes('_streamSectors(cx, cz, Math.min(activeRadius, SECTOR_RADIUS_MAX))'));
           assert.ok(s.includes('SECTOR_ATTACH_PER_FRAME = 3'));

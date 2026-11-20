@@ -728,133 +728,85 @@ jobs:
             data['scripts']['build']=data['scripts']['build'].replace(' && vite build',f' && {gate} && vite build')
           pkg.write_text(json.dumps(data,indent=2)+'\n')
           print('V8 RP: story/job entry points removed; direct-city free roam retained')
-          PY
-
-      - name: V9 remove mission systems from RP runtime
-        working-directory: ${{ env.PROJECT_DIR }}
-        shell: bash
-        run: |
-          python3 - <<'PY'
-          from pathlib import Path
-          import json
-
-          p = Path('src/game/index.js')
-          s = p.read_text()
-          # Replace the story mission runner with a deliberately inert compatibility
-          # facade. This preserves save, character switching and free-roam APIs while
-          # removing all mission simulation, objectives, briefings and scripted starts.
-          start = s.find('    this.missions = new MissionRunner(ctx, {')
-          end = s.find('\n\n    this.freeroam = new FreeRoam', start)
-          if start >= 0 and end > start:
-            stub = """    this.missions = {
-              active: false, running: false, M: null, waypoint: null,
-              userWaypoint: null, boy: null, boyId: this.save.active,
-              difficulty: this.save.difficulty ?? 'normal', save: this.save,
-              onEnd: null, heat: this.heat,
-              hudObjective: () => null, hudWard: () => null,
-              noteKill: () => {}, playBriefing: () => false,
-              start: () => null, startCustom: () => null,
-              skipIntro: () => false, forceBegin: () => false,
-              abort: () => false, abortWith: () => false, fail: () => false,
-              update: () => {}, dispose: () => {},
-            }; // V9 RP: mission engine removed from live gameplay."""
-            s = s[:start] + stub + s[end:]
-          elif 'V9 RP: mission engine removed from live gameplay' not in s:
-            raise SystemExit('MissionRunner construction anchor not found')
-          # Remove the scripted restricted-base encounter, retaining an inert
-          # lifecycle object because existing reset/dispose hooks call it.
-          start = s.find('    this.airbase = new AirbaseAssault(ctx, {')
-          end = s.find('\n\n    this.jobs = new JobBoard', start)
-          if start >= 0 and end > start:
-            s = s[:start] + """    this.airbase = {
-      stats: null, reset: () => {}, update: () => {}, dispose: () => {},
-    }; // V9 RP: scripted assault events removed.""" + s[end:]
-          elif 'V9 RP: scripted assault events removed' not in s:
-            raise SystemExit('Airbase encounter construction anchor not found')
-          # Remove side-job board and all its runtime offers.
-          start = s.find('    this.jobs = new JobBoard(ctx, {')
-          end = s.find('\n\n    this.characters = new Characters', start)
-          if start >= 0 and end > start:
-            s = s[:start] + """    this.jobs = {
-      lite: { active: false }, boy: null, save: this.save,
-      best: () => null, list: () => [], mapPoints: () => [],
-      refresh: () => {}, start: () => null, update: () => {}, dispose: () => {},
-    }; // V9 RP: side-job system removed from live gameplay.""" + s[end:]
-          elif 'V9 RP: side-job system removed from live gameplay' not in s:
-            raise SystemExit('JobBoard construction anchor not found')
-          # Keep the free-roam map, but remove all race start prompts and race pins.
-          s = s.replace("    this.freeroam.boy = this.characters.boy;\n    this.jobs.boy = this.characters.boy;",
-                        "    this.freeroam.boy = this.characters.boy;", 1)
-          s = s.replace("      this.jobs.boy = this.characters.boy;\n      this.jobs.refresh(true);\n", "", 1)
-          s = s.replace("    this.jobs.boy = this.characters.boy;\n    this.jobs.refresh(true);\n", "", 1)
-          s = s.replace("    this.jobs.boy = this.characters.boy;\n", "", 1)
-          s = s.replace("    this.jobs.refresh(true);\n", "", 1)
-          # Story/chapter data must not be advertised as an available next action.
-          sig = '  nextChapter(id = this.characters.activeId) {'
-          i = s.find(sig)
-          if i >= 0:
-            b = s.find('\n  }', i)
-            if b < 0: raise SystemExit('nextChapter method boundary missing')
-            s = s[:i] + sig + "\n    return null; // V9 RP: no chapter progression.\n" + s[b:]
-          elif 'V9 RP: no chapter progression.' not in s:
-            raise SystemExit('nextChapter method anchor missing')
-          # Ensure UI-facing mission summaries and job offers are empty.
-          s = s.replace("  jobBoard() {\n    return this.jobs.list();",
-                        "  jobBoard() {\n    return []; // V9 RP: no scripted job board.")
-          s = s.replace("  getStoryOverview(id = this.characters.activeId) {",
-                        "  getStoryOverview(id = this.characters.activeId) {\n    void id;\n    return null; // V9 RP: story overview removed.")
-          # The J/K mission controls are gone; U remains for character switching.
-          input_sig = '  _input(ctx) {'
-          i = s.find(input_sig)
-          if i >= 0:
-            b = s.find('\n  }', i)
-            if b < 0: raise SystemExit('_input method boundary missing')
-            s = s[:i] + input_sig + "\n    const input = ctx.input;\n    if (!input?.enabled || input.frozen || this._paused(ctx)) return;\n    if (input.pressed?.('KeyU')) this.characters.cycle(1);\n" + s[b:]
-          elif 'V9 RP: mission engine removed from live gameplay' not in s:
-            raise SystemExit('_input method anchor missing')
-          p.write_text(s)
-
-          f = Path('src/game/freeroam.js')
-          fs = f.read_text()
-          fs = fs.replace("  _race(x, z, veh) {\n    if (this.missions.active) return false;",
-                          "  _race(x, z, veh) {\n    return false; // V9 RP: race missions removed.")
-          fs = fs.replace("  startRace(trackId) {\n    const t = RACE_TRACKS[trackId];",
-                          "  startRace(trackId) {\n    void trackId;\n    return null; // V9 RP: no scripted race events.\n    const t = RACE_TRACKS[trackId];")
-          # Do not publish race markers; shops, fuel and safehouses remain.
-          fs = fs.replace("    for (const t of Object.values(RACE_TRACKS)) {\n      out.push({ x: t.points[0].x, z: t.points[0].z, kind: 'race', name: t.name });\n    }",
+          # V9: replace mission, job and scripted-assault engines with inert
+          # compatibility facades. Player, traffic and ordinary city interactions stay live.
+          game = Path('src/game/index.js')
+          gs = game.read_text()
+          def replace_region(source, start_text, end_text, replacement, marker):
+            a = source.find(start_text)
+            b = source.find(end_text, a + len(start_text)) if a >= 0 else -1
+            if a >= 0 and b > a:
+              return source[:a] + replacement + source[b:]
+            if marker in source:
+              return source
+            raise SystemExit('V9 patch anchor missing: ' + start_text)
+          mission_stub = "\\n".join([
+            "    this.missions = {",
+            "      active: false, running: false, M: null, waypoint: null, userWaypoint: null,",
+            "      boy: null, boyId: this.save.active, difficulty: this.save.difficulty ?? 'normal',",
+            "      save: this.save, onEnd: null, heat: this.heat,",
+            "      hudObjective: () => null, hudWard: () => null, noteKill: () => {},",
+            "      playBriefing: () => false, start: () => null, startCustom: () => null,",
+            "      skipIntro: () => false, forceBegin: () => false, abort: () => false,",
+            "      abortWith: () => false, fail: () => false, update: () => {}, dispose: () => {},",
+            "    }; // V9 RP: mission engine removed from live gameplay."
+          ])
+          gs = replace_region(gs, "    this.missions = new MissionRunner(ctx, {", "\\n\\n    this.freeroam = new FreeRoam",
+                              mission_stub, "V9 RP: mission engine removed from live gameplay")
+          airbase_stub = "    this.airbase = { stats: null, reset: () => {}, update: () => {}, dispose: () => {} }; // V9 RP: scripted assault events removed."
+          gs = replace_region(gs, "    this.airbase = new AirbaseAssault(ctx, {", "\\n\\n    this.jobs = new JobBoard",
+                              airbase_stub, "V9 RP: scripted assault events removed")
+          jobs_stub = "\\n".join([
+            "    this.jobs = {",
+            "      lite: { active: false }, boy: null, save: this.save,",
+            "      best: () => null, list: () => [], mapPoints: () => [],",
+            "      refresh: () => {}, start: () => null, update: () => {}, dispose: () => {},",
+            "    }; // V9 RP: side-job system removed from live gameplay."
+          ])
+          gs = replace_region(gs, "    this.jobs = new JobBoard(ctx, {", "\\n\\n    this.characters = new Characters",
+                              jobs_stub, "V9 RP: side-job system removed from live gameplay")
+          gs = gs.replace("    this.freeroam.boy = this.characters.boy;\\n    this.jobs.boy = this.characters.boy;",
+                          "    this.freeroam.boy = this.characters.boy;", 1)
+          gs = gs.replace("      this.jobs.boy = this.characters.boy;\\n      this.jobs.refresh(true);\\n", "")
+          gs = gs.replace("    this.jobs.boy = this.characters.boy;\\n    this.jobs.refresh(true);\\n", "")
+          gs = gs.replace("    this.jobs.boy = this.characters.boy;\\n", "")
+          gs = gs.replace("    this.jobs.refresh(true);\\n", "")
+          chapter_sig = "  nextChapter(id = this.characters.activeId) {"
+          gs = replace_region(gs, chapter_sig, "\\n  }",
+                              chapter_sig + "\\n    return null; // V9 RP: no chapter progression.\\n",
+                              "V9 RP: no chapter progression")
+          gs = gs.replace("  jobBoard() {\\n    return this.jobs.list();",
+                          "  jobBoard() {\\n    return []; // V9 RP: no scripted job board.")
+          gs = gs.replace("  getStoryOverview(id = this.characters.activeId) {",
+                          "  getStoryOverview(id = this.characters.activeId) {\\n    void id;\\n    return null; // V9 RP: story overview removed.")
+          input_sig = "  _input(ctx) {"
+          input_body = input_sig + "\\n    const input = ctx.input;\\n    if (!input?.enabled || input.frozen || this._paused(ctx)) return;\\n    if (input.pressed?.('KeyU')) this.characters.cycle(1);\\n"
+          gs = replace_region(gs, input_sig, "\\n  }", input_body, "V9 RP: mission controls removed")
+          game.write_text(gs)
+          free = Path('src/game/freeroam.js')
+          fs = free.read_text()
+          fs = fs.replace("  _race(x, z, veh) {\\n    if (this.missions.active) return false;",
+                          "  _race(x, z, veh) {\\n    return false; // V9 RP: race missions removed.")
+          fs = fs.replace("  startRace(trackId) {\\n    const t = RACE_TRACKS[trackId];",
+                          "  startRace(trackId) {\\n    void trackId;\\n    return null; // V9 RP: no scripted race events.\\n    const t = RACE_TRACKS[trackId];")
+          fs = fs.replace("    for (const t of Object.values(RACE_TRACKS)) {\\n      out.push({ x: t.points[0].x, z: t.points[0].z, kind: 'race', name: t.name });\\n    }",
                           "    // V9 RP: race activity pins removed.")
-          f.write_text(fs)
-
+          free.write_text(fs)
           Path('src/game/rpmissionremovalprobe.mjs').write_text("""import assert from 'node:assert/strict';
           import { readFile } from 'node:fs/promises';
-          const [game,free] = await Promise.all([
-            readFile(new URL('./index.js', import.meta.url),'utf8'),
-            readFile(new URL('./freeroam.js', import.meta.url),'utf8')
-          ]);
-          for (const token of [
-            'V9 RP: mission engine removed from live gameplay',
-            'V9 RP: scripted assault events removed',
-            'V9 RP: side-job system removed from live gameplay',
-            'V9 RP: no chapter progression.',
-            'V9 RP: no scripted job board.',
-            'V9 RP: story overview removed.',
-          ]) assert.ok(game.includes(token), 'missing guard: '+token);
-          assert.match(game,/hudObjective: \(\) => null/);
-          assert.match(game,/startCustom: \(\) => null/);
-          assert.match(game,/jobBoard\(\) \{\n    return \[\]/);
-          assert.match(free,/V9 RP: race missions removed/);
-          assert.match(free,/V9 RP: no scripted race events/);
-          assert.match(free,/V9 RP: race activity pins removed/);
-          console.log('V9 RP mission-removal probe: 11 assertions passed');
+          const [g,f] = await Promise.all([readFile(new URL('./index.js',import.meta.url),'utf8'),readFile(new URL('./freeroam.js',import.meta.url),'utf8')]);
+          for (const x of ['V9 RP: mission engine removed from live gameplay','V9 RP: scripted assault events removed','V9 RP: side-job system removed from live gameplay','V9 RP: no chapter progression.','V9 RP: no scripted job board.','V9 RP: story overview removed.']) assert.ok(g.includes(x),x);
+          assert.match(g,/hudObjective: \\(\\) => null/); assert.match(g,/startCustom: \\(\\) => null/);
+          assert.match(f,/V9 RP: race missions removed/); assert.match(f,/V9 RP: no scripted race events/); assert.match(f,/V9 RP: race activity pins removed/);
+          console.log('V9 RP mission-removal probe: 9 assertions passed');
           """)
           pkg = Path('package.json')
           data = json.loads(pkg.read_text())
-          build = data['scripts']['build']
           gate = 'node src/game/rpmissionremovalprobe.mjs'
-          if gate not in build:
-            data['scripts']['build'] = build.replace(' && vite build', f' && {gate} && vite build')
-          pkg.write_text(json.dumps(data, indent=2) + '\n')
-          print('V9 RP runtime: story missions, side jobs, race events and airbase assault disabled; free-roam city retained')
+          if gate not in data['scripts']['build']:
+            data['scripts']['build'] = data['scripts']['build'].replace(' && vite build', f' && {gate} && vite build')
+          pkg.write_text(json.dumps(data, indent=2) + '\\n')
+          print('V9 RP: story, side jobs, races and assault runtime disabled; city free roam retained')
           PY
 
       - name: Persist tuned Android source archive

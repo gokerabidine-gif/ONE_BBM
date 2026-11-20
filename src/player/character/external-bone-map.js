@@ -1,11 +1,11 @@
 /**
  * Explicit source-joint map for the imported 24-joint GLB.
- * null entries are helper joints that the current procedural player animator
- * does not drive; they must be handled by retargeting, not silently aliased.
+ * null entries are source helpers/extra joints excluded from the game's named rig.
+ * Missing hand-end bones are synthesized by external-character-loader.js.
  */
 export const EXTERNAL_BONE_MAP = Object.freeze({
   Hips: 'hips',
-  Spine02: 'spine', Spine01: 'chest', Spine: 'chestAux',
+  Spine02: 'spine', Spine01: 'chest', Spine: null,
   neck: 'neck', Head: 'head', head_end: 'headEnd', headfront: null,
   LeftShoulder: 'clavL', LeftArm: 'armL', LeftForeArm: 'forearmL', LeftHand: 'handL',
   LeftUpLeg: 'thighL', LeftLeg: 'shinL', LeftFoot: 'footL', LeftToeBase: 'toeL',
@@ -19,6 +19,8 @@ export const GAME_ANIMATOR_BONES = Object.freeze([
   'clavR','armR','forearmR','handR','handEndR','thighR','shinR','footR','toeR',
 ]);
 
+export const SYNTHESIZED_GAME_BONES = Object.freeze(['handEndL', 'handEndR']);
+
 export function mapExternalBone(name) {
   return Object.hasOwn(EXTERNAL_BONE_MAP, name) ? EXTERNAL_BONE_MAP[name] : undefined;
 }
@@ -31,12 +33,14 @@ export function validateExternalSkeleton(names, gameBoneNames = GAME_ANIMATOR_BO
   const duplicates = [...new Set(mapped.filter(({ target }) => target).map(({ target }) => target))]
     .filter((target) => mapped.filter((entry) => entry.target === target).length > 1);
   const covered = new Set(mapped.filter(({ target }) => target).map(({ target }) => target));
-  const missingGameBones = gameBoneNames.filter((target) => !covered.has(target));
+  const virtualBones = SYNTHESIZED_GAME_BONES.filter((target) => gameBoneNames.includes(target));
+  const missingGameBones = gameBoneNames.filter((target) => !covered.has(target) && !virtualBones.includes(target));
   return {
     ok: unmapped.length === 0 && unknownTargets.length === 0 && duplicates.length === 0 && missingGameBones.length === 0,
     mapped, unmapped, ignored, unknownTargets, duplicates, missingGameBones,
-    needsRetargeting: ignored.length > 0 || duplicates.length > 0 || missingGameBones.length > 0,
-    notes: ['GLB joint translations are in centimetres while the game rig is in metres.', 'Bind matrices and forward-axis convention require retarget calibration.', 'Do not attach this skeleton to the live player until the missing joints and aliases are resolved.'],
+    synthesizedGameBones: virtualBones,
+    needsRetargeting: ignored.length > 0 || duplicates.length > 0 || virtualBones.length > 0,
+    notes: ['GLB joint translations are in centimetres while the game rig is in metres.', 'Bind matrices and forward-axis convention require retarget calibration.', 'handEndL/handEndR are virtual IK reference bones, not skin-weighted joints.', 'Do not attach this skeleton to the live player until retarget tests pass.'],
     manyToOne: duplicates,
   };
 }

@@ -122,13 +122,18 @@ jobs:
           p = Path('src/main.js')
           s = p.read_text()
           anchor = "const canvas = document.getElementById('game');"
-          mobile = "if (/Android/i.test(navigator.userAgent)) Object.assign(config.q, { renderScale: 0.82, shadowMapSize: 1024, cascades: 1, shadowDistance: 75, drawDistance: 800, particleBudget: 850, decalBudget: 36, anisotropy: 4, pedBudget: 0 });\n\n"
+          mobile = "if (/Android/i.test(navigator.userAgent)) { config.setQuality('high'); Object.assign(config.q, { renderScale: 0.92, shadowMapSize: 2048, cascades: 3, shadowDistance: 190, drawDistance: 2200, streamRadius: 440, tileBuildBudgetMs: 5, particleBudget: 8000, decalBudget: 160, anisotropy: 16, trafficBudget: 38, pedBudget: 0, lodBias: 1.4, grassDensity: 0.6, gtao: true, volumetrics: true, motionBlur: true }); }\n\n"
           if anchor not in s:
               raise SystemExit('main.js config insertion point missing')
           s = s.replace(anchor, mobile + anchor, 1)
           # Crash/context-loss reporting and one guarded WebGL recovery reload.
           diag = "window.addEventListener('error',e=>{try{localStorage.setItem('onebbm_last_crash',JSON.stringify({kind:'window-error',detail:e.message||'unknown',time:Date.now()}))}catch{}});window.addEventListener('unhandledrejection',e=>{try{localStorage.setItem('onebbm_last_crash',JSON.stringify({kind:'unhandled-rejection',detail:String(e.reason||'unknown'),time:Date.now()}))}catch{}});const gameCanvas=document.getElementById('game');if(gameCanvas)gameCanvas.addEventListener('webglcontextlost',e=>{e.preventDefault();try{localStorage.setItem('onebbm_last_crash',JSON.stringify({kind:'webgl-context-lost',time:Date.now()}));if(!sessionStorage.getItem('onebbm_context_recovery')){sessionStorage.setItem('onebbm_context_recovery','1');setTimeout(()=>location.reload(),1200)}}catch{}},false);"
           s = s.replace(anchor, anchor + "\n" + diag, 1)
+          # Pin Android at the high visual preset: no governor-driven quality degradation.
+          gov = "if (!capture && params.get('gov') !== '0') {"
+          if gov not in s:
+              raise SystemExit('governor insertion point missing')
+          s = s.replace(gov, "if (!capture && params.get('gov') !== '0' && !/Android/i.test(navigator.userAgent)) {", 1)
           old = "const warmup = params.get('prewarm') === '0' ? { ok: false, reason: 'disabled by ?prewarm=0' } : await prewarm(engine);"
           new = "const isAndroidMobile = /Android/i.test(navigator.userAgent);\nconst warmup = (isAndroidMobile || params.get('prewarm') === '0') ? { ok: false, reason: 'disabled for Android/mobile startup' } : await prewarm(engine);"
           if old not in s:

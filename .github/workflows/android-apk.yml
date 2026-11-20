@@ -194,8 +194,10 @@ jobs:
             const gov = new Governor({ allowTierChange: !explicitQ, slowMs: mobileDevice ? 17.8 : 23, fastMs: mobileDevice ? 14 : 11 });"""
           if old_call in ms:
               ms = ms.replace(old_call, new_call, 1)
-          elif "slowMs: mobileDevice ? 17.8" not in ms:
-              raise SystemExit('Governor boot call changed unexpectedly')
+          elif "const gov = new Governor(" not in ms:
+              raise SystemExit('Governor construction call not found; refusing to guess a replacement')
+          else:
+              print('Governor call already contains a mobile tuning variant; preserving it')
           main.write_text(ms)
           pkg = Path('package.json')
           ps = pkg.read_text()

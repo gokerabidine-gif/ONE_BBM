@@ -122,7 +122,7 @@ jobs:
           p = Path('src/main.js')
           s = p.read_text()
           anchor = "const canvas = document.getElementById('game');"
-          mobile = "const isAndroidMobile = /Android/i.test(navigator.userAgent); if (isAndroidMobile) { config.setQuality('ultra'); Object.assign(config.q, { renderScale: 0.92, shadowMapSize: 2048, cascades: 3, shadowDistance: 190, drawDistance: 2200, streamRadius: 440, tileBuildBudgetMs: 5, particleBudget: 8000, decalBudget: 160, anisotropy: 16, trafficBudget: 38, pedBudget: 0, lodBias: 1.4, grassDensity: 0.6, gtao: true, ssr: false, volumetrics: false, motionBlur: false }); }\\n\\n"
+          mobile = "const isAndroidMobile = /Android/i.test(navigator.userAgent); if (isAndroidMobile) { config.setQuality('ultra'); Object.assign(config.q, { renderScale: 0.92, shadowMapSize: 2048, cascades: 3, shadowDistance: 190, drawDistance: 2200, streamRadius: 440, tileBuildBudgetMs: 5, particleBudget: 8000, decalBudget: 160, anisotropy: 16, trafficBudget: 38, pedBudget: 0, lodBias: 1.4, grassDensity: 0.6, gtao: true, ssr: false, volumetrics: false, motionBlur: false }); }\n\n"
           if anchor not in s:
               raise SystemExit('main.js config insertion point missing')
           s = s.replace(anchor, mobile + anchor, 1)

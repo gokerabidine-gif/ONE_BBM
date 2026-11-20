@@ -224,6 +224,12 @@ jobs:
           print('Phase 8 slide button layout applied')
           PY
 
+      - name: Optimize streamed city build queue
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/patch_stream_queue.py "$PROJECT_DIR"
+
       - name: Install dependencies
         working-directory: ${{ env.PROJECT_DIR }}
         run: npm install --no-audit --no-fund

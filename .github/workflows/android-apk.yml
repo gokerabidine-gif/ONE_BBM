@@ -1,8 +1,8 @@
 name: Build ONE BBM Android APK
-run-name: ONE BBM V3 — Corrected City Detail LOD
+run-name: ONE BBM V4 — Faster Android World Entry
 
 env:
-  ONE_BBM_VERSION: V3
+  ONE_BBM_VERSION: V4
 
 on:
   workflow_dispatch:
@@ -44,7 +44,7 @@ jobs:
       - name: Upload extracted project source
         uses: actions/upload-artifact@v4
         with:
-          name: ONE-BBM-V2-source
+          name: ONE-BBM-V4-source
           path: ONE-BBM-extracted-source.zip
           if-no-files-found: error
           retention-days: 7
@@ -76,7 +76,7 @@ jobs:
       - name: Upload character model source
         uses: actions/upload-artifact@v4
         with:
-          name: ONE-BBM-V2-character-model
+          name: ONE-BBM-V4-character-model
           path: ONE-BBM-character-model-source.zip
           if-no-files-found: error
           retention-days: 7
@@ -381,6 +381,73 @@ jobs:
           print('ONE BBM V3 corrected facade LOD threshold direction')
           PY
 
+      - name: Stop distant skyline roads blocking first entry
+        working-directory: ${{ env.PROJECT_DIR }}
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('src/world/index.js')
+          s = p.read_text()
+          init_anchor = "    this._sectorJobs = 0;\n"
+          if "this._farPending = 0;" not in s:
+              if init_anchor not in s:
+                  raise SystemExit('World streaming initialization anchor missing')
+              s = s.replace(init_anchor, init_anchor + "    // Horizon-only road ribbons must not hold the player at the loading screen.\n    this._farPending = 0;\n", 1)
+          ready_old = "      this.queue.pending === 0 && this._sectorJobs === 0 && this._colJobs === 0 &&"
+          ready_new = "      this.queue.pending <= this._farPending && this._sectorJobs === 0 && this._colJobs === 0 &&"
+          if ready_old in s:
+              s = s.replace(ready_old, ready_new, 1)
+          elif ready_new not in s:
+              raise SystemExit('World ready gate anchor missing')
+          old = """        this.queue.push(() => {
+            const mesh = this.roadMesh.buildFar(sx, sz);
+            if (!mesh) return;
+            this._far.set(`${sx},${sz}`, mesh);
+            if (this._sectors.has(sx, sz)) {
+              const rec = this._sectors.live.get(this._sectors.key(sx, sz));
+              if (rec?.group) mesh.visible = false;
+            }
+            this.root.add(mesh);
+          }, 6);"""
+          new = """        this._farPending++;
+            this.queue.push(() => {
+              try {
+                const mesh = this.roadMesh.buildFar(sx, sz);
+                if (!mesh) return;
+                this._far.set(`${sx},${sz}`, mesh);
+                if (this._sectors.has(sx, sz)) {
+                  const rec = this._sectors.live.get(this._sectors.key(sx, sz));
+                  if (rec?.group) mesh.visible = false;
+                }
+                this.root.add(mesh);
+              } finally {
+                this._farPending = Math.max(0, this._farPending - 1);
+              }
+            }, 6);"""
+          if old in s:
+              s = s.replace(old, new, 1)
+          elif "this._farPending++;" not in s:
+              raise SystemExit('Far-sector queue block not found')
+          # Full streamingIdle remains strict: captures still wait for every horizon ribbon.
+          if "this.queue.pending === 0 &&" not in s:
+              raise SystemExit('Strict streamingIdle gate unexpectedly changed')
+          p.write_text(s)
+          probe = Path('src/world/worldreadinessprobe.mjs')
+          probe.write_text("""import assert from 'node:assert/strict';
+          import { readFile } from 'node:fs/promises';
+          const s = await readFile(new URL('./index.js', import.meta.url), 'utf8');
+          assert.match(s, /this\\._farPending = 0/);
+          assert.match(s, /this\\.queue\\.pending <= this\\._farPending/);
+          assert.match(s, /this\\._farPending\\+\\+/);
+          assert.match(s, /this\\._farPending = Math\\.max\\(0, this\\._farPending - 1\\)/);
+          assert.match(s, /streamingIdle\\(\\)[\\s\\S]*?this\\.queue\\.pending === 0/);
+          console.log('World readiness gate: horizon work no longer blocks initial entry; strict full-idle gate preserved.');
+          """)
+          print('Distant horizon work separated from initial world-ready gate')
+          PY
+          node src/world/worldreadinessprobe.mjs
+
       - name: Persist tuned Android source archive
         working-directory: ${{ env.PROJECT_DIR }}
         continue-on-error: true
@@ -449,7 +516,7 @@ jobs:
         continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
-          name: ONE-BBM-V3-runtime-test
+          name: ONE-BBM-V4-runtime-test
           path: ${{ env.PROJECT_DIR }}/onebbm-runtime.png
           if-no-files-found: error
           retention-days: 7
@@ -492,7 +559,7 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: ONE-BBM-V3-APK
+          name: ONE-BBM-V4-APK
           path: ONE-BBM-V3.apk
           if-no-files-found: error
           retention-days: 14

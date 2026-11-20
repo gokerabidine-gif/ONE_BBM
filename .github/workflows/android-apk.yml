@@ -1,4 +1,8 @@
 name: Build ONE BBM Android APK
+run-name: ONE BBM V1 — Graphics & FPS
+
+env:
+  ONE_BBM_VERSION: V1
 
 on:
   workflow_dispatch:
@@ -40,7 +44,7 @@ jobs:
       - name: Upload extracted project source
         uses: actions/upload-artifact@v4
         with:
-          name: ONE-BBM-extracted-source
+          name: ONE-BBM-V1-source
           path: ONE-BBM-extracted-source.zip
           if-no-files-found: error
           retention-days: 7
@@ -72,7 +76,7 @@ jobs:
       - name: Upload character model source
         uses: actions/upload-artifact@v4
         with:
-          name: ONE-BBM-character-model-source
+          name: ONE-BBM-V1-character-model
           path: ONE-BBM-character-model-source.zip
           if-no-files-found: error
           retention-days: 7
@@ -293,7 +297,7 @@ jobs:
         continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
-          name: ONE-BBM-runtime-screenshot
+          name: ONE-BBM-V1-runtime-test
           path: ${{ env.PROJECT_DIR }}/onebbm-runtime.png
           if-no-files-found: error
           retention-days: 7
@@ -327,10 +331,16 @@ jobs:
         working-directory: ${{ env.PROJECT_DIR }}/android
         run: ./gradlew assembleDebug
 
+      - name: Name versioned APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp "$PROJECT_DIR/android/app/build/outputs/apk/debug/app-debug.apk" "$GITHUB_WORKSPACE/ONE-BBM-V1.apk"
+
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: ONE-BBM-debug-apk
-          path: ${{ env.PROJECT_DIR }}/android/app/build/outputs/apk/debug/app-debug.apk
+          name: ONE-BBM-V1-APK
+          path: ONE-BBM-V1.apk
           if-no-files-found: error
           retention-days: 14

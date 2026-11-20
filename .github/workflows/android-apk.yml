@@ -23,7 +23,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p source
-          unzip -q "ONE-BBM-upload-light.zip" -d source
+          unzip -q "ONE-BBM-upload-light-latest.zip" -d source
           PROJECT_DIR="$(find source -type f -name package.json -not -path '*/node_modules/*' -printf '%h\n' | head -n 1)"
           if [ -z "$PROJECT_DIR" ]; then
             echo "package.json was not found inside the uploaded archive" >&2

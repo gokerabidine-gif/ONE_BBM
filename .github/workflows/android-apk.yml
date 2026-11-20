@@ -403,39 +403,30 @@ jobs:
           method_start = s.find("  _queueFarSectors() {")
           if method_start < 0:
               raise SystemExit('Actual _queueFarSectors method missing')
-          method_end = s.find("\n  /*", method_start)
+          method_end = s.find("\\n  /*", method_start)
           if method_end < 0:
               raise SystemExit('Could not locate end of _queueFarSectors method')
           method = s[method_start:method_end]
           if "this._farPending++;" not in method:
-              old_job = """        this.queue.push(() => {
-                  const mesh = this.roadMesh.buildFar(sx, sz);
-                  if (!mesh) return;
-                  this._far.set(`${sx},${sz}`, mesh);
-                  if (this._sectors.has(sx, sz)) {
-                    const rec = this._sectors.live.get(this._sectors.key(sx, sz));
-                    if (rec?.group) mesh.visible = false;
-                  }
-                  this.root.add(mesh);
-                }, 6);"""
-              new_job = """        this._farPending++;
-                this.queue.push(() => {
-                  try {
-                    const mesh = this.roadMesh.buildFar(sx, sz);
-                    if (!mesh) return;
-                    this._far.set(`${sx},${sz}`, mesh);
-                    if (this._sectors.has(sx, sz)) {
-                      const rec = this._sectors.live.get(this._sectors.key(sx, sz));
-                      if (rec?.group) mesh.visible = false;
-                    }
-                    this.root.add(mesh);
-                  } finally {
-                    this._farPending = Math.max(0, this._farPending - 1);
-                  }
-                }, 6);"""
-              if old_job not in method:
-                  raise SystemExit('Exact far-sector queue job block did not match source')
-              method = method.replace(old_job, new_job, 1)
+              lines = method.splitlines()
+              push_i = next((i for i, line in enumerate(lines) if "this.queue.push(() => {" in line), -1)
+              if push_i < 0:
+                  raise SystemExit('Far-sector queue push not found')
+              indent = lines[push_i][:len(lines[push_i]) - len(lines[push_i].lstrip())]
+              close_i = next((i for i in range(push_i + 1, len(lines)) if lines[i].strip() == "}, 6);"), -1)
+              if close_i < 0:
+                  raise SystemExit('Far-sector queue callback terminator not found')
+              body = lines[push_i + 1:close_i]
+              wrapped = [indent + "this._farPending++;",
+                         indent + "this.queue.push(() => {",
+                         indent + "  try {"]
+              wrapped.extend(("    " + line if line.strip() else line) for line in body)
+              wrapped.extend([indent + "  } finally {",
+                              indent + "    this._farPending = Math.max(0, this._farPending - 1);",
+                              indent + "  }",
+                              indent + "}, 6);"])
+              lines[push_i:close_i + 1] = wrapped
+              method = "\\n".join(lines)
               s = s[:method_start] + method + s[method_end:]
           # Full streamingIdle remains strict: captures still wait for every horizon ribbon.
           if "this.queue.pending === 0 &&" not in s:

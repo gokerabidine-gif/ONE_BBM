@@ -840,7 +840,7 @@ jobs:
 
           p=Path('src/core/governor.js'); s=p.read_text()
           import re
-          pattern=r"if \\(/Android/i\\.test\\(ua\\)\\) \\{.*?^\\s*\\}"
+          pattern=r"if \(/Android/i\.test\(ua\)\) \{.*?^\s*\}"
           s,n=re.subn(pattern,"if (/Android/i.test(ua)) return 'low'; // V10: prevent tier escalation.",s,flags=re.M|re.S,count=1)
           if n != 1 and "V10: prevent tier escalation" not in s: raise SystemExit('Android tier block not found')
           s=s.replace('this.minScale = 0.62;','this.minScale = 0.48;',1)
@@ -886,9 +886,9 @@ jobs:
             readFile(new URL('../render/index.js',import.meta.url),'utf8'),
             readFile(new URL('./engine.js',import.meta.url),'utf8')
           ]);
-          assert.match(main,/renderScale: 0\\.52/); assert.match(main,/trafficBudget: 3/); assert.match(main,/pedBudget: 0/);
-          assert.match(gov,/V10: prevent tier escalation/); assert.match(gov,/minScale = 0\\.48/);
-          assert.match(render,/V10 thermal profile/); assert.match(engine,/1000 \\/ 30/); assert.match(engine,/_mobileLoopLast/);
+          assert.ok(main.includes('renderScale: 0.52') && main.includes('trafficBudget: 3') && main.includes('pedBudget: 0'));
+          assert.ok(gov.includes('V10: prevent tier escalation') && gov.includes('minScale = 0.48'));
+          assert.ok(render.includes('V10 thermal profile') && engine.includes('const cap = 1000 / 30') && engine.includes('_mobileLoopLast'));
           console.log('V10 thermal profile probe: 7 assertions passed');
           """)
           pkg=Path('package.json'); data=json.loads(pkg.read_text())
@@ -923,10 +923,10 @@ jobs:
           Path('src/world/fastentryprobe.mjs').write_text("""import assert from 'node:assert/strict';
           import { readFile } from 'node:fs/promises';
           const s=await readFile(new URL('./index.js',import.meta.url),'utf8');
-          assert.match(s,/entryRadius = Math\\.min\\(q\\.streamRadius, 60\\)/);
-          assert.match(s,/activeRadius = this\\._ready \\? q\\.streamRadius : entryRadius/);
-          assert.match(s,/this\\._streamTiles\\(cx, cz, activeRadius\\)/);
-          assert.match(s,/this\\._streamSectors\\(cx, cz, Math\\.min\\(activeRadius, SECTOR_RADIUS_MAX\\)\\)/);
+          assert.ok(s.includes('entryRadius = Math.min(q.streamRadius, 60)'));
+          assert.ok(s.includes('activeRadius = this._ready ? q.streamRadius : entryRadius'));
+          assert.ok(s.includes('_streamTiles(cx, cz, activeRadius)'));
+          assert.ok(s.includes('_streamSectors(cx, cz, Math.min(activeRadius, SECTOR_RADIUS_MAX))'));
           console.log('Fast-entry/progressive-streaming probe: 4 assertions passed');
           """)
           pkg=Path('package.json'); d=json.loads(pkg.read_text())

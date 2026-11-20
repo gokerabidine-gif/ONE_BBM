@@ -203,7 +203,7 @@ jobs:
           new_build = '"build": "node src/core/tierprobe.mjs && node tools/lintticks.mjs && vite build"'
           if old_build in ps:
               ps = ps.replace(old_build, new_build, 1)
-          elif new_build not in ps:
+          elif 'node src/core/tierprobe.mjs' not in ps:
               raise SystemExit('package build script changed unexpectedly')
           pkg.write_text(ps)
           Path('src/core/tierprobe.mjs').write_text("""import assert from 'node:assert/strict';

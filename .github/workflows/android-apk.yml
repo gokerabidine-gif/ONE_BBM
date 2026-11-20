@@ -199,7 +199,7 @@ jobs:
           const status = await page.evaluate(() => ({ ready: window.__READY__, model: window.__ONE_BBM_CHARACTER_MODEL__ ?? null }));
           console.log('Runtime diagnostics:', JSON.stringify(status));
           console.log('Browser errors:', JSON.stringify(errors.slice(0, 30)));
-          await page.screenshot({ path: 'onebbm-runtime.png', fullPage: true }).catch(e => console.log('Screenshot error:', e.message));
+          await page.screenshot({ path: 'onebbm-runtime.png', fullPage: false, animations: 'disabled', timeout: 10000 }).catch(e => console.log('Screenshot error:', e.message));
           if (status.model?.status !== 'loaded' || (status.model?.bones ?? 0) < 15) {
             throw new Error('Model runtime verification failed; diagnostics logged above');
           }
@@ -208,6 +208,7 @@ jobs:
           JS
 
       - name: Upload runtime screenshot for visual inspection
+        continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
           name: ONE-BBM-runtime-screenshot

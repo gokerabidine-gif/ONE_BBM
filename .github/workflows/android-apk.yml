@@ -662,7 +662,16 @@ jobs:
           p = Path('src/core/prewarm.js')
           s = p.read_text()
           line = '  const warmPoses = mobile ? WARM_POSES.slice(0, 1) : WARM_POSES;'
-          s = re.sub(r'(?:^' + re.escape(line) + r'\n)+', line + '\n', s, flags=re.M)
+          lines = s.splitlines(keepends=True)
+          out = []
+          seen = False
+          for item in lines:
+            if item.strip() == line.strip():
+              if seen:
+                continue
+              seen = True
+            out.append(item)
+          s = ''.join(out)
           if s.count(line) != 1:
             raise SystemExit('Could not normalize duplicated mobile prewarm declaration')
           p.write_text(s)

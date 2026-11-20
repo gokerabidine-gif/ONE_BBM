@@ -134,14 +134,18 @@ jobs:
           if gov not in s:
               raise SystemExit('governor insertion point missing')
           s = s.replace(gov, "if (!capture && params.get('gov') !== '0') {", 1)
-          s = s.replace("const gov = new Governor({ allowTierChange: !explicitQ });", "const gov = new Governor({ allowTierChange: !explicitQ && !isAndroidMobile }); if (isAndroidMobile) { gov.minScale = 0.62; gov.targetMs = 20; gov.slowMs = 22; gov._warmup = 24; gov.ignoreStreamingBusy = true; }", 1)
+          s = s.replace("const gov = new Governor({ allowTierChange: !explicitQ });", "const gov = new Governor({ allowTierChange: !explicitQ && !isAndroidMobile }); if (isAndroidMobile) { gov.minScale = 0.62; gov.targetMs = 18.5; gov.slowMs = 21; gov.trimStep = 0.12; gov._warmup = 24; gov.ignoreStreamingBusy = true; }", 1)
           # Android governor adjusts only framebuffer resolution: preserve preset/effects/materials and never tier-drop.
           governor_path = Path('src/core/governor.js')
           g = governor_path.read_text()
           old_busy = "if (world && typeof world.streamingIdle === 'function' && !world.streamingIdle()) return;"
           new_busy = "if (world && typeof world.streamingIdle === 'function' && !world.streamingIdle() && !this.ignoreStreamingBusy) return;"
           if old_busy not in g: raise SystemExit('governor streaming guard anchor missing')
-          governor_path.write_text(g.replace(old_busy, new_busy, 1))
+          g = g.replace(old_busy, new_busy, 1)
+          old_step = "const next = Math.max(this.minScale, Math.min(cur - 0.06, want));"
+          new_step = "const next = Math.max(this.minScale, Math.min(cur - (this.trimStep ?? 0.06), want));"
+          if old_step not in g: raise SystemExit('governor trim step anchor missing')
+          governor_path.write_text(g.replace(old_step, new_step, 1))
           old = "const warmup = params.get('prewarm') === '0' ? { ok: false, reason: 'disabled by ?prewarm=0' } : await prewarm(engine);"
           new = "const warmup = (isAndroidMobile || params.get('prewarm') === '0') ? { ok: false, reason: 'disabled for Android/mobile startup' } : await prewarm(engine);"
           if old not in s:

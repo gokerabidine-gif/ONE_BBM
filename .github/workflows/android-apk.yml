@@ -895,6 +895,29 @@ jobs:
           print('V10 thermal/frame-budget profile applied')
           PY
 
+      - name: V11 align Android thermal tier regression probe
+        working-directory: ${{ env.PROJECT_DIR }}
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('src/core/tierprobe.mjs')
+          s = p.read_text()
+          # V10 deliberately pins Android to the low thermal tier. The original
+          # test still expected medium on high-memory Android and Mali, which
+          # contradicted the new thermal policy and blocked the APK build.
+          old1 = "mock({ua:'Android 14',memory:8,cores:8}); assert.equal(detectTier(),'medium');"
+          old2 = "mock({ua:'Android 14',renderer:'Mali-G615 MC6'}); assert.equal(detectTier(),'medium');"
+          new1 = "mock({ua:'Android 14',memory:8,cores:8}); assert.equal(detectTier(),'low');"
+          new2 = "mock({ua:'Android 14',renderer:'Mali-G615 MC6'}); assert.equal(detectTier(),'low');"
+          if old1 in s: s = s.replace(old1, new1, 1)
+          elif new1 not in s: raise SystemExit('Android high-memory tier probe anchor missing')
+          if old2 in s: s = s.replace(old2, new2, 1)
+          elif new2 not in s: raise SystemExit('Android Mali tier probe anchor missing')
+          p.write_text(s)
+          print('Android tier probe aligned with V10 low-thermal profile')
+          PY
+
       - name: Apply V11 staged city streaming and upload throttle
         working-directory: ${{ env.PROJECT_DIR }}
         shell: bash

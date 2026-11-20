@@ -260,11 +260,8 @@ jobs:
           new = "import { farFacadeDetailDistance, facadeLodScale } from './quality.js';"
           if old in s: s = s.replace(old, new, 1)
           elif new not in s: raise SystemExit('Buildings quality import not found')
-          old = """        lodDistance: this.farDetailDist,
-                  lodCenter: [rec.cx, this._groundAt(rec.cx, rec.cz) + 10, rec.cz],"""
-          new = """        lodDistance: this.farDetailDist,
-                  lodScale: facadeLodScale(this.ctx.config.quality),
-                  lodCenter: [rec.cx, this._groundAt(rec.cx, rec.cz) + 10, rec.cz],"""
+          old = "        lodDistance: this.farDetailDist,\\n        lodCenter: [rec.cx, this._groundAt(rec.cx, rec.cz) + 10, rec.cz],"
+          new = "        lodDistance: this.farDetailDist,\\n        lodScale: facadeLodScale(this.ctx.config.quality),\\n        lodCenter: [rec.cx, this._groundAt(rec.cx, rec.cz) + 10, rec.cz]"
           if old in s: s = s.replace(old, new, 1)
           elif 'lodScale: facadeLodScale(this.ctx.config.quality)' not in s:
               raise SystemExit('Building tile LOD options not found')
@@ -272,13 +269,8 @@ jobs:
 
           p = Path('src/buildings/tile.js')
           s = p.read_text()
-          old = """      lodNode.name = `bl_${this.name}`;
-                lodNode.autoUpdate = false;
-                const near = new THREE.Group();"""
-          new = """      lodNode.name = `bl_${this.name}`;
-                lodNode.autoUpdate = false;
-                lodNode.userData.owLodScale = Math.max(1, Math.min(1.2, Number(opts.lodScale) || 1));
-                const near = new THREE.Group();"""
+          old = "      lodNode.name = `bl_${this.name}`;\\n      lodNode.autoUpdate = false;\\n      const near = new THREE.Group();"
+          new = "      lodNode.name = `bl_${this.name}`;\\n      lodNode.autoUpdate = false;\\n      lodNode.userData.owLodScale = Math.max(1, Math.min(1.2, Number(opts.lodScale) || 1));\\n      const near = new THREE.Group();"
           if old in s: s = s.replace(old, new, 1)
           elif 'lodNode.userData.owLodScale = Math.max(1, Math.min(1.2, Number(opts.lodScale) || 1));' not in s:
               raise SystemExit('TileBuilder LOD node insertion point not found')

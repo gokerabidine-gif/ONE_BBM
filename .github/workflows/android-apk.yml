@@ -902,6 +902,44 @@ jobs:
           print('V10 thermal/frame-budget profile applied')
           PY
 
+      - name: Apply V10 fast-entry and progressive city streaming
+        working-directory: ${{ env.PROJECT_DIR }}
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import json
+          p=Path('src/world/index.js'); s=p.read_text()
+          old="""    this._streamTiles(cx, cz, q.streamRadius);
+            this._streamSectors(cx, cz, Math.min(q.streamRadius, SECTOR_RADIUS_MAX));"""
+          new="""    // Fast-entry: initially build a spawn bubble, then expand to the full
+            // mobile radius after the world-ready gate. Near work stays prioritized.
+            const entryRadius = Math.min(q.streamRadius, 60);
+            const activeRadius = this._ready ? q.streamRadius : entryRadius;
+            this._streamTiles(cx, cz, activeRadius);
+            this._streamSectors(cx, cz, Math.min(activeRadius, SECTOR_RADIUS_MAX));"""
+          if old in s: s=s.replace(old,new,1)
+          elif 'const entryRadius = Math.min(q.streamRadius, 60);' not in s: raise SystemExit('World streaming entry anchor not found')
+          p.write_text(s)
+
+          # Keep initial readiness tied to local spawn terrain; full radius streams
+          # in progressively after entry. This preserves the capture idle contract.
+          Path('src/world/fastentryprobe.mjs').write_text("""import assert from 'node:assert/strict';
+          import { readFile } from 'node:fs/promises';
+          const s=await readFile(new URL('./index.js',import.meta.url),'utf8');
+          assert.match(s,/entryRadius = Math\\.min\\(q\\.streamRadius, 60\\)/);
+          assert.match(s,/activeRadius = this\\._ready \\? q\\.streamRadius : entryRadius/);
+          assert.match(s,/this\\._streamTiles\\(cx, cz, activeRadius\\)/);
+          assert.match(s,/this\\._streamSectors\\(cx, cz, Math\\.min\\(activeRadius, SECTOR_RADIUS_MAX\\)\\)/);
+          console.log('Fast-entry/progressive-streaming probe: 4 assertions passed');
+          """)
+          pkg=Path('package.json'); d=json.loads(pkg.read_text())
+          gate='node src/world/fastentryprobe.mjs'
+          if gate not in d['scripts']['build']: d['scripts']['build']=d['scripts']['build'].replace(' && vite build',f' && {gate} && vite build')
+          pkg.write_text(json.dumps(d,indent=2)+'\\n')
+          print('Fast entry and progressive city streaming patch applied')
+          PY
+
       - name: Persist tuned Android source archive
         working-directory: ${{ env.PROJECT_DIR }}
         continue-on-error: true

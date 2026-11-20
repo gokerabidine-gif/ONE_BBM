@@ -904,14 +904,13 @@ jobs:
           import json
           p=Path('src/world/index.js'); s=p.read_text()
           old="""    this._streamTiles(cx, cz, q.streamRadius);
-            this._streamSectors(cx, cz, Math.min(q.streamRadius, SECTOR_RADIUS_MAX));"""
-          new="""    // Fast-entry: initially build a spawn bubble, then expand to the full
-            // mobile radius after the world-ready gate. Near work stays prioritized.
-            const entryRadius = Math.min(q.streamRadius, 60);
-            const activeRadius = this._ready ? q.streamRadius : entryRadius;
-            this._streamTiles(cx, cz, activeRadius);
-            this._streamSectors(cx, cz, Math.min(activeRadius, SECTOR_RADIUS_MAX));"""
-          if old in s: s=s.replace(old,new,1)
+    this._streamSectors(cx, cz, Math.min(q.streamRadius, SECTOR_RADIUS_MAX));"""
+          new="""    // Fast-entry: initially build a spawn bubble, then expand after readiness.
+    const entryRadius = Math.min(q.streamRadius, 60);
+    const activeRadius = this._ready ? q.streamRadius : entryRadius;
+    this._streamTiles(cx, cz, activeRadius);
+    this._streamSectors(cx, cz, Math.min(activeRadius, SECTOR_RADIUS_MAX));"""
+          if old in s: s=s.replace(old,1)
           elif 'const entryRadius = Math.min(q.streamRadius, 60);' not in s: raise SystemExit('World streaming entry anchor not found')
           p.write_text(s)
 

@@ -6,7 +6,7 @@ on:
     branches: [main, master, 'fix/player-movement-and-visual-quality']
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build-apk:
@@ -224,6 +224,25 @@ jobs:
           """)
           print('Android quality/frame-pacing fixes applied')
           PY
+
+      - name: Persist tuned Android source archive
+        working-directory: ${{ env.PROJECT_DIR }}
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          zip -qr "$GITHUB_WORKSPACE/ONE-BBM-upload-light-latest.zip" .
+          cd "$GITHUB_WORKSPACE"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add ONE-BBM-upload-light-latest.zip
+          if ! git diff --cached --quiet; then
+            git commit -m "Persist Android quality and frame pacing tuning"
+            git push origin "$GITHUB_REF_NAME"
+            echo "Tuned source archive committed"
+          else
+            echo "Source archive already contains tuning"
+          fi
 
       - name: Install dependencies
         working-directory: ${{ env.PROJECT_DIR }}

@@ -427,7 +427,9 @@ jobs:
                               indent + "}, 6);"])
               lines[push_i:close_i + 1] = wrapped
               method = "\n".join(lines)
-              s = s[:method_start] + method + s[method_end:]
+          # Normalize escaped line breaks left by earlier patch attempts, even when the counter already exists.
+          method = method.replace("\\n", "\n")
+          s = s[:method_start] + method + s[method_end:]
           # Full streamingIdle remains strict: captures still wait for every horizon ribbon.
           if "this.queue.pending === 0 &&" not in s:
               raise SystemExit('Strict streamingIdle gate unexpectedly changed')

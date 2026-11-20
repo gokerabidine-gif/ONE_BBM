@@ -32,6 +32,19 @@ jobs:
           echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
           echo "Using project directory: $PROJECT_DIR"
 
+      - name: Export extracted project source for inspection
+        shell: bash
+        run: |
+          set -euo pipefail
+          zip -qr ONE-BBM-extracted-source.zip "$PROJECT_DIR"
+      - name: Upload extracted project source
+        uses: actions/upload-artifact@v4
+        with:
+          name: ONE-BBM-extracted-source
+          path: ONE-BBM-extracted-source.zip
+          if-no-files-found: error
+          retention-days: 7
+
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:

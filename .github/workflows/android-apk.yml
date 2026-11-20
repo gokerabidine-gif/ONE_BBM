@@ -232,8 +232,8 @@ jobs:
           from pathlib import Path
           p = Path('src/world/streaming.js')
           s = p.read_text()
-          a = "    this.pending = 0;\\n    this.ran = 0;"
-          b = "    this.heads = new Array(BUCKETS).fill(0);\\n    this.pending = 0;\\n    this.ran = 0;"
+          a = "    this.pending = 0;\n    this.ran = 0;"
+          b = "    this.heads = new Array(BUCKETS).fill(0);\n    this.pending = 0;\n    this.ran = 0;"
           if a not in s: raise SystemExit('queue constructor anchor missing')
           s = s.replace(a, b, 1)
           old = """      const b = this.buckets[p];
@@ -278,8 +278,8 @@ jobs:
           """
           if old not in s: raise SystemExit('queue dequeue block not found')
           s = s.replace(old, new, 1)
-          a = "    for (const b of this.buckets) b.length = 0;\\n    this.pending = 0;"
-          b = "    for (const b of this.buckets) b.length = 0;\\n    this.heads.fill(0);\\n    this.pending = 0;"
+          a = "    for (const b of this.buckets) b.length = 0;\n    this.pending = 0;"
+          b = "    for (const b of this.buckets) b.length = 0;\n    this.heads.fill(0);\n    this.pending = 0;"
           if a not in s: raise SystemExit('queue clear anchor missing')
           p.write_text(s.replace(a, b, 1))
           probe = Path('src/world/queueprobe.mjs')

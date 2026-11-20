@@ -39,6 +39,13 @@ if "GLTFLoader" not in s:
  if "this._loadRealisticModel(spec.id);" not in s:
   raise SystemExit('Failed to add realistic model loader call')
  p.write_text(s)
+p=project/'src/player/character/index.js'; s=p.read_text()
+call_anchor = "    this.root.visible = this.visible;\n    return this.root;"
+if call_anchor in s and "this._loadRealisticModel(spec.id);" not in s:
+ s=s.replace(call_anchor, "    this.root.visible = this.visible;\n    this._loadRealisticModel(spec.id);\n    return this.root;", 1)
+if "this._loadRealisticModel(spec.id);" not in s:
+ raise SystemExit('loader call-site still missing')
+p.write_text(s)
 p=project/'src/player/anim/animator.js'; s=p.read_text()
 if 'rig.syncExternalPose?.();' not in s:
  s=s.replace('    rig.root.updateMatrixWorld(true);\n  }\n\n  /** Interpolate', '    rig.syncExternalPose?.();\n    rig.root.updateMatrixWorld(true);\n  }\n\n  /** Interpolate',1)

@@ -649,6 +649,78 @@ jobs:
           print('RP direct entry enabled: no briefing, missions, side jobs, or staging rings')
           PY
 
+      - name: V8 hard-remove story and job access from RP gameplay
+        working-directory: ${{ env.PROJECT_DIR }}
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re, json
+
+          # V5's workflow patch was applied more than once to the extracted
+          # source. Collapse duplicate declarations before any production build.
+          p = Path('src/core/prewarm.js')
+          s = p.read_text()
+          line = '  const warmPoses = mobile ? WARM_POSES.slice(0, 1) : WARM_POSES;'
+          s = re.sub(r'(?:^' + re.escape(line) + r'\n)+', line + '\n', s, flags=re.M)
+          if s.count(line) != 1:
+            raise SystemExit('Could not normalize duplicated mobile prewarm declaration')
+          p.write_text(s)
+
+          # Hard-remove story/job entry points from the shipped RP UI. Keep
+          # low-level modules in source until dependency checks prove safe to
+          # delete them; they are not reachable from normal gameplay.
+          p = Path('src/ui/index.js')
+          s = p.read_text()
+          def replace_method(source, signature, body, next_signature):
+            start = source.find(signature)
+            if start < 0:
+              if body.strip() in source: return source
+              raise SystemExit('UI RP removal anchor missing: ' + signature)
+            end = source.find(next_signature, start + len(signature))
+            if end < 0: raise SystemExit('UI RP method boundary missing: ' + signature)
+            return source[:start] + body + '\n\n  ' + source[end:]
+          s = replace_method(
+            s, '  openStory() {',
+            '  openStory() {\n    this.story?.hide();\n    return false; // V8 RP: story overview removed from gameplay.\n  }',
+            'closeStory() {')
+          s = replace_method(
+            s, '  toggleStory() {',
+            '  toggleStory() {\n    this.story?.hide();\n    return false; // V8 RP: no story modal entry point.\n  }',
+            '  /**\n   * A playable overview row was activated.')
+          s = replace_method(
+            s, '  missionAction(source = \'touch\') {',
+            '  missionAction(source = \'touch\') {\n    void source;\n    this.story?.hide();\n    return false; // V8 RP: JOB action removed.\n  }',
+            '  /**\n   * @param {object} p')
+          # Disable the story hotkey and make the JOB touch target inert.
+          s = s.replace(
+            "    if (input.pressed('KeyO') && (this.story.open || !this._hardModal())) this.toggleStory();",
+            "    if (input.pressed('KeyO')) this.story?.hide(); // V8 RP: story key removed.")
+          p.write_text(s)
+
+          Path('src/game/rp-hard-remove-probe.mjs').write_text("""import assert from 'node:assert/strict';
+          import { readFile } from 'node:fs/promises';
+          const [ui,game] = await Promise.all([
+            readFile(new URL('../ui/index.js', import.meta.url),'utf8'),
+            readFile(new URL('./index.js', import.meta.url),'utf8')
+          ]);
+          assert.match(ui,/V8 RP: story overview removed/);
+          assert.match(ui,/V8 RP: no story modal entry point/);
+          assert.match(ui,/V8 RP: JOB action removed/);
+          assert.match(ui,/V8 RP: story key removed/);
+          assert.match(game,/story missions removed/);
+          assert.match(game,/scripted side jobs removed/);
+          console.log('V8 hard RP removal probe: 6 assertions passed');
+          """)
+          pkg=Path('package.json')
+          data=json.loads(pkg.read_text())
+          gate='node src/game/rp-hard-remove-probe.mjs'
+          if gate not in data['scripts']['build']:
+            data['scripts']['build']=data['scripts']['build'].replace(' && vite build',f' && {gate} && vite build')
+          pkg.write_text(json.dumps(data,indent=2)+'\n')
+          print('V8 RP: story/job entry points removed; direct-city free roam retained')
+          PY
+
       - name: Persist tuned Android source archive
         working-directory: ${{ env.PROJECT_DIR }}
         continue-on-error: true

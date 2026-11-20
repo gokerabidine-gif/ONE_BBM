@@ -7,7 +7,7 @@ p=project/'src/player/character/index.js'; s=p.read_text()
 if "GLTFLoader" not in s:
  s=s.replace("import { buildTextures, disposeTextures } from './textures.js';", "import { buildTextures, disposeTextures } from './textures.js';\nimport { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';")
  s=s.replace("    this._parent = null;", "    this._parent = null;\n    this.externalRoot = null; this.externalBones = null; this.externalRest = null; this.proceduralRest = null; this._externalLoadToken = 0;")
- s=s.replace("    if (keep) keep.add(this.root);\n    this.root.visible = this.visible;\n    return this.root;", "    if (keep) keep.add(this.root);\n    this.root.visible = this.visible;\n    this._loadRealisticModel(spec.id);\n    return this.root;")
+ s=s.replace("    if (keep) keep.add(this.root);\n    this.root.visible = this.visible;\n    // Remove original procedural render mesh permanently; keep its bones as animation driver.\n    if (this.mesh) { this.root.remove(this.mesh); this.mesh.visible = false; this.mesh.geometry?.dispose?.(); for (const m of (Array.isArray(this.mesh.material) ? this.mesh.material : [this.mesh.material])) m?.dispose?.(); }\n    this._loadRealisticModel(spec.id);\n    return this.root;", "    if (keep) keep.add(this.root);\n    this.root.visible = this.visible;\n    this._loadRealisticModel(spec.id);\n    return this.root;")
  method='''
   /** Async replacement body; procedural rig remains animation/IK driver. */
   async _loadRealisticModel(id) {

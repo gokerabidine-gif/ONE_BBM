@@ -165,23 +165,26 @@ jobs:
             // Emitting again resized event-driven targets twice and added hitches.
             engine.resize?.();
           """, 1)
-          pattern = r"    if \(/iPhone\\|iPad\\|Android/i\\.test\\(navigator\\.userAgent\\)\\) return 'low';\\n\\s*// Retina at 3\\.3 MP internal is a very different job from 1080p\\.\\n\\s*const px = innerWidth \\* innerHeight \\* Math\\.min\\(devicePixelRatio \\|\\| 1, 2\\);"
-          new = """    const ua = String(navigator.userAgent || '');
-            // Keep entry-level phones at low, but do not force capable Android
-            // hardware into the lowest geometry, traffic and lighting budgets.
-            if (/Android/i.test(ua)) {
-              const memory = Number(navigator.deviceMemory || 0);
-              const cores = Number(navigator.hardwareConcurrency || 0);
-              const capableGpu = /Mali-G[567]|Adreno \\(TM\\) 7|Adreno 7/i.test(r);
-              return (capableGpu || (memory >= 8 && cores >= 8)) ? 'medium' : 'low';
-            }
-            if (/iPhone|iPad/i.test(ua)) return 'low';
-            // Retina at 3.3 MP internal is a very different job from 1080p.
-            const px = innerWidth * innerHeight * Math.min(devicePixelRatio || 1, 2);
+          start = s.find("    if (/iPhone|iPad|Android/i.test(navigator.userAgent)) return 'low';")
+          end = s.find("    const bigCanvas = px > 3.0e6;", start)
+          if start < 0 or end < 0:
+              if "const ua = String(navigator.userAgent || '')" not in s:
+                  raise SystemExit('Android tier detection block missing')
+          else:
+              mobile_block = """    const ua = String(navigator.userAgent || '');
+              // Keep entry-level phones at low, but do not force capable Android
+              // hardware into the lowest geometry, traffic and lighting budgets.
+              if (/Android/i.test(ua)) {
+                const memory = Number(navigator.deviceMemory || 0);
+                const cores = Number(navigator.hardwareConcurrency || 0);
+                const capableGpu = /Mali-G[567]|Adreno \\(TM\\) 7|Adreno 7/i.test(r);
+                return (capableGpu || (memory >= 8 && cores >= 8)) ? 'medium' : 'low';
+              }
+              if (/iPhone|iPad/i.test(ua)) return 'low';
+              // Retina at 3.3 MP internal is a very different job from 1080p.
+              const px = innerWidth * innerHeight * Math.min(devicePixelRatio || 1, 2);
           """
-          s, count = re.subn(pattern, lambda _: new, s, count=1)
-          if count != 1:
-              if new not in s: raise SystemExit('Android tier detection block missing')
+              s = s[:start] + mobile_block + s[end:]
           p.write_text(s)
           pkg = Path('package.json')
           ps = pkg.read_text()

@@ -560,6 +560,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ONE-BBM-V4-APK
-          path: ONE-BBM-V3.apk
+          path: ONE-BBM-${{ env.ONE_BBM_VERSION }}.apk
           if-no-files-found: error
           retention-days: 14

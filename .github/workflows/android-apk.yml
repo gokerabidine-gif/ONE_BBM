@@ -839,14 +839,10 @@ jobs:
           main.write_text(s)
 
           p=Path('src/core/governor.js'); s=p.read_text()
-          old="""      if (/Android/i.test(ua)) {
-                const memory = Number(navigator.deviceMemory || 0);
-                const cores = Number(navigator.hardwareConcurrency || 0);
-                const capableGpu = /Mali-G[567]|Adreno \\(TM\\) 7|Adreno 7/i.test(r);
-                return (capableGpu || (memory >= 8 && cores >= 8)) ? 'medium' : 'low';
-              }"""
-          if old in s: s=s.replace(old,"      if (/Android/i.test(ua)) return 'low'; // V10: prevent tier escalation.",1)
-          elif "V10: prevent tier escalation" not in s: raise SystemExit('Android tier block missing')
+          import re
+          pattern=r"if \\(/Android/i\\.test\\(ua\\)\\) \\{.*?^\\s*\\}"
+          s,n=re.subn(pattern,"if (/Android/i.test(ua)) return 'low'; // V10: prevent tier escalation.",s,flags=re.M|re.S,count=1)
+          if n != 1 and "V10: prevent tier escalation" not in s: raise SystemExit('Android tier block not found')
           s=s.replace('this.minScale = 0.62;','this.minScale = 0.48;',1)
           p.write_text(s)
 

@@ -185,8 +185,16 @@ jobs:
           node --input-type=module <<'JS'
           import { chromium } from 'playwright';
           const browser = await chromium.launch({ headless: true, args: ['--use-gl=swiftshader', '--enable-webgl', '--ignore-gpu-blocklist'] });
-          const page = await browser.newPage();
+          const context = await browser.newContext({
+            viewport: { width: 915, height: 412 },
+            deviceScaleFactor: 1,
+            isMobile: true,
+            hasTouch: true,
+            userAgent: 'Mozilla/5.0 (Linux; Android 14; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Mobile Safari/537.36'
+          });
+          const page = await context.newPage();
           const errors = [];
+          const startedAt = Date.now();
           page.on('pageerror', e => errors.push(e.message));
           page.on('console', m => { if (m.type() === 'error') errors.push(m.text()); });
           try {
@@ -196,8 +204,14 @@ jobs:
           } catch (e) {
             console.log('Runtime wait failed:', e.message);
           }
-          const status = await page.evaluate(() => ({ ready: window.__READY__, model: window.__ONE_BBM_CHARACTER_MODEL__ ?? null }));
-          console.log('Runtime diagnostics:', JSON.stringify(status));
+          const status = await page.evaluate(() => ({
+            ready: window.__READY__,
+            model: window.__ONE_BBM_CHARACTER_MODEL__ ?? null,
+            viewport: { width: innerWidth, height: innerHeight, mobile: matchMedia('(pointer: coarse)').matches },
+            canvas: (() => { const c = document.querySelector('canvas'); return c ? { width: c.width, height: c.height, cssWidth: c.clientWidth, cssHeight: c.clientHeight } : null; })()
+          }));
+          status.elapsedMs = Date.now() - startedAt;
+          console.log('Mobile landscape runtime diagnostics:', JSON.stringify(status));
           console.log('Browser errors:', JSON.stringify(errors.slice(0, 30)));
           await page.screenshot({ path: 'onebbm-runtime.png', fullPage: false, animations: 'disabled', timeout: 10000 }).catch(e => console.log('Screenshot error:', e.message));
           if (status.model?.status !== 'loaded' || (status.model?.bones ?? 0) < 15) {

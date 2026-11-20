@@ -1,8 +1,8 @@
 name: Build ONE BBM Android APK
-run-name: ONE BBM V4 — Faster Android World Entry
+run-name: ONE BBM V5 — Mobile thermal and frame pacing
 
 env:
-  ONE_BBM_VERSION: V4
+  ONE_BBM_VERSION: V5
 
 on:
   workflow_dispatch:
@@ -448,6 +448,59 @@ jobs:
           print('Distant horizon work separated from initial world-ready gate')
           PY
           node src/world/worldreadinessprobe.mjs
+
+      - name: Apply mobile thermal and startup budget
+        working-directory: ${{ env.PROJECT_DIR }}
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          main = Path('src/main.js')
+          s = main.read_text()
+          config_anchor = "  deterministic: capture,\n});\nif (capture) {"
+          mobile_block = """  deterministic: capture,
+          });
+          const mobileDevice = /Android|iPhone|iPad/i.test(navigator.userAgent || '');
+          // A balanced mobile profile: retain the city silhouette and facade
+          // detail while cutting the expensive resident radius, shadow passes,
+          // crowd/traffic density and post effects that drive heat and frame drops.
+          if (mobileDevice && !explicitQ) Object.assign(config.q, {
+            renderScale: 0.74, shadowMapSize: 1024, cascades: 2, shadowDistance: 100,
+            taa: false, gtao: false, ssr: false, volumetrics: false, motionBlur: false,
+            bloom: true, anisotropy: 4, particleBudget: 2400, decalBudget: 72,
+            drawDistance: 1300, streamRadius: 240, tileBuildBudgetMs: 3,
+            lightSlots: 4, trafficBudget: 10, pedBudget: 24, lodBias: 1.65,
+            grassDensity: 0.30,
+          });
+          if (capture) {"""
+          if config_anchor in s:
+              s=s.replace(config_anchor,mobile_block,1)
+          elif "A balanced mobile profile:" not in s:
+              raise SystemExit("main config insertion anchor missing")
+          s=s.replace("await prewarm(engine);","await prewarm(engine, { mobile: mobileDevice });",1)
+          s=s.replace("  const mobileDevice = /Android|iPhone|iPad/i.test(navigator.userAgent || '');\n  const gov = new Governor({ allowTierChange: !explicitQ, slowMs: mobileDevice ? 17.8 : 23, fastMs: mobileDevice ? 14 : 11 });",
+                      "  const gov = new Governor({ allowTierChange: !explicitQ, slowMs: mobileDevice ? 19.5 : 23, fastMs: mobileDevice ? 14.5 : 11 });",1)
+          if "await prewarm(engine, { mobile: mobileDevice });" not in s:
+              raise SystemExit("prewarm call replacement failed")
+          main.write_text(s)
+
+          warm = Path('src/core/prewarm.js')
+          s = warm.read_text()
+          sig = "export async function prewarm(engine, { onProgress = () => {}, transients = false, drawFrames = false } = {}) {"
+          newsig = "export async function prewarm(engine, { onProgress = () => {}, transients = false, drawFrames = false, mobile = false } = {}) {"
+          if sig in s: s=s.replace(sig,newsig,1)
+          elif newsig not in s: raise SystemExit("prewarm signature anchor missing")
+          s=s.replace("  const programsBefore = renderer.info.programs?.length ?? 0;",
+                      "  const programsBefore = renderer.info.programs?.length ?? 0;\n  // Mobile devices compile one representative spawn view; the world/material hooks below still warm the shared shader variants.\n  const warmPoses = mobile ? WARM_POSES.slice(0, 1) : WARM_POSES;",1)
+          s=s.replace("const totalSteps = WARM_POSES.length * 2 + (transients ? transientStages.length : 0) + 1;",
+                      "const totalSteps = warmPoses.length * 2 + (transients ? transientStages.length : 0) + 1;",1)
+          s=s.replace("for (const p of WARM_POSES) {","for (const p of warmPoses) {",1)
+          if "const warmPoses = mobile ? WARM_POSES.slice(0, 1) : WARM_POSES;" not in s:
+              raise SystemExit("mobile warm pose insertion failed")
+          warm.write_text(s)
+          print("Mobile thermal profile and reduced startup shader prewarm applied")
+          PY
 
       - name: Persist tuned Android source archive
         working-directory: ${{ env.PROJECT_DIR }}

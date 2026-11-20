@@ -3,6 +3,14 @@
 ## Asset inspected
 The imported GLB has one skinned mesh, 24 source joints, and two clips named `walk` and `run` (72 channels each).
 
+## Source archive recovered and inspected (2026-11-20)
+The original project source ZIP and the character-model workflow artifact were recovered locally from GitHub Actions. The GLB was parsed directly.
+
+- GLB Armature node has a uniform scale of `0.01`.
+- The mesh POSITION accessor bounds are approximately `[-0.54, 0.54] m` in X, `0..1.8 m` in Y, and `[-0.171, 0.171] m` in Z before node transforms.
+- The mesh node is a child of the scaled Armature node. Therefore the displayed mesh scale is a **calibration risk**; confirm the rendered size and skin bind before changing transforms. Do not apply a blanket centimetres-to-metres scale to the already-loaded GLB without checking node transforms.
+- Source joint translations are expressed in the Armature's local space; the root scale already participates in their world transforms. The helper's raw `centimetersToMeters()` conversion is for raw data only, not a second scaling pass on GLTFLoader output.
+
 ## Adapter preparation now committed
 - `Spine02 → spine`, `Spine01 → chest`
 - The extra source `Spine` joint is excluded from the game's named-bone map (not incorrectly mapped to a nonexistent `chestAux`).

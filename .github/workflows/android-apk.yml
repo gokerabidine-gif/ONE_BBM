@@ -224,6 +224,88 @@ jobs:
           print('Phase 8 slide button layout applied')
           PY
 
+      - name: Optimize streamed city job queue and add regression probe
+        working-directory: ${{ env.PROJECT_DIR }}
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('src/world/streaming.js')
+          s = p.read_text()
+          a = "    this.pending = 0;\\n    this.ran = 0;"
+          b = "    this.heads = new Array(BUCKETS).fill(0);\\n    this.pending = 0;\\n    this.ran = 0;"
+          if a not in s: raise SystemExit('queue constructor anchor missing')
+          s = s.replace(a, b, 1)
+          old = """      const b = this.buckets[p];
+      while (b.length) {
+        const spent = counted ? ran >= jobBudget : ran > 0 && now() - t0 >= budgetMs;
+        if (spent) {
+          this.lastMs = now() - t0;
+          this.ran = ran;
+          this.totalRan += ran;
+          return ran;
+        }
+        const fn = b.shift();
+        this.pending--;
+        ran++;
+        try {
+          fn();
+        } catch (err) {
+          console.error('[world] build job threw:', err);
+        }
+      }
+          """
+          new = """      const b = this.buckets[p];
+      let head = this.heads[p];
+      while (head < b.length) {
+        const spent = counted ? ran >= jobBudget : ran > 0 && now() - t0 >= budgetMs;
+        if (spent) {
+          this.heads[p] = head;
+          this.lastMs = now() - t0;
+          this.ran = ran;
+          this.totalRan += ran;
+          return ran;
+        }
+        const fn = b[head++];
+        this.pending--;
+        ran++;
+        try { fn(); } catch (err) { console.error('[world] build job threw:', err); }
+      }
+      // Avoid Array.shift() copying the remaining thousands of streamed jobs.
+      // Buckets are reset only when drained; queued work stays stable in order.
+      b.length = 0;
+      this.heads[p] = 0;
+          """
+          if old not in s: raise SystemExit('queue dequeue block not found')
+          s = s.replace(old, new, 1)
+          a = "    for (const b of this.buckets) b.length = 0;\\n    this.pending = 0;"
+          b = "    for (const b of this.buckets) b.length = 0;\\n    this.heads.fill(0);\\n    this.pending = 0;"
+          if a not in s: raise SystemExit('queue clear anchor missing')
+          p.write_text(s.replace(a, b, 1))
+          probe = Path('src/world/queueprobe.mjs')
+          probe.write_text("""import assert from 'node:assert/strict';
+import { JobQueue } from './streaming.js';
+const q = new JobQueue(); const seen = [];
+q.push(() => { seen.push('p2-a'); q.push(() => seen.push('p2-new'), 2); }, 2);
+q.push(() => seen.push('p0'), 0); q.push(() => seen.push('p5'), 5);
+assert.equal(q.pending, 3); assert.equal(q.run(100, () => 0, 2), 2);
+assert.deepEqual(seen, ['p0', 'p2-a']); assert.equal(q.pending, 2);
+assert.equal(q.run(100, () => 0, 10), 2); assert.deepEqual(seen, ['p0','p2-a','p2-new','p5']);
+assert.equal(q.pending, 0); assert.equal(q.run(1, () => 0), 0);
+for (let i=0;i<5000;i++) q.push(()=>{},i%10);
+assert.equal(q.run(100,()=>0,5000),5000); assert.equal(q.pending,0);
+q.push(()=>{},1); q.clear(); assert.equal(q.pending,0); assert.equal(q.run(100,()=>0),0);
+console.log('[streaming queue] PASS: priority, requeue, budgets, large queue, clear');
+""")
+          package = Path('package.json')
+          pkg = package.read_text()
+          gate = "node src/world/routeprobe.mjs &&"
+          if gate not in pkg: raise SystemExit('gate insertion point missing')
+          pkg = pkg.replace(gate, gate + " node src/world/queueprobe.mjs &&", 1)
+          package.write_text(pkg)
+          print('O(1) queue dequeue and regression probe added')
+          PY
+
       - name: Install dependencies
         working-directory: ${{ env.PROJECT_DIR }}
         run: npm install --no-audit --no-fund

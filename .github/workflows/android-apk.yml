@@ -169,6 +169,28 @@ jobs:
           print('Player character procedural texture resolution raised 256->512; anisotropy 16')
           PY
 
+
+      - name: Apply city-wide HD material resolution (buildings, roads, pavement, props)
+        working-directory: ${{ env.PROJECT_DIR }}
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('src/materials/index.js')
+          s = p.read_text()
+          old = "ctx?.config?.quality === 'ultra' ? 1.25 : 1;"
+          new = "ctx?.config?.quality === 'ultra' ? 1.5 : 1;"
+          if old not in s: raise SystemExit('city material ultra-resolution anchor missing')
+          p.write_text(s.replace(old, new, 1))
+          p = Path('src/vehicles/paint.js')
+          s = p.read_text()
+          old = '    const s = lowQ ? 0.5 : 1;'
+          new = "    const s = lowQ ? 0.5 : (this.ctx?.config?.quality === 'ultra' ? 1.5 : 1);"
+          if old not in s: raise SystemExit('vehicle material scale anchor missing')
+          p.write_text(s.replace(old, new, 1))
+          print('Ultra city material bake factor raised to 1.5; 1K city textures become 2K, 256 maps become 512. Vehicle procedural texture scale raised x1.5.')
+          PY
+
       - name: Apply Phase 8 slide button layout
         working-directory: ${{ env.PROJECT_DIR }}
         shell: bash

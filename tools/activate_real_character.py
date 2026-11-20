@@ -22,8 +22,8 @@ if "GLTFLoader" not in s:
       const pairs = { hips:'Hips', spine:'Spine02', chest:'Spine01', neck:'neck', head:'Head', headEnd:'head_end', clavL:'LeftShoulder', armL:'LeftArm', forearmL:'LeftForeArm', handL:'LeftHand', thighL:'LeftUpLeg', shinL:'LeftLeg', footL:'LeftFoot', toeL:'LeftToeBase', clavR:'RightShoulder', armR:'RightArm', forearmR:'RightForeArm', handR:'RightHand', thighR:'RightUpLeg', shinR:'RightLeg', footR:'RightFoot', toeR:'RightToeBase' };
       this.externalBones = {}; this.proceduralRest = {}; this.externalRest = {};
       for (const [g, n] of Object.entries(pairs)) { const eb=src.get(n), pb=this.bones?.[g]; if (!eb || !pb) continue; this.externalBones[g]=eb; this.proceduralRest[g]=pb.quaternion.clone(); this.externalRest[g]=eb.quaternion.clone(); }
-      this.externalRoot=extRoot; this.root.add(extRoot); this.mesh.visible=false; this.syncExternalPose(); this.root.updateMatrixWorld(true);
-    } catch (err) { console.error('[ONE BBM] realistic model failed; no legacy character fallback is allowed', err); }
+      this.externalRoot=extRoot; this.root.add(extRoot); this.mesh.visible=false; this.syncExternalPose(); this.root.updateMatrixWorld(true);\n      window.__ONE_BBM_CHARACTER_MODEL__ = { status: 'loaded', url: modelUrl, character: id, bones: Object.keys(this.externalBones).length };\n      console.info('[ONE BBM] Realistic character loaded:', id, 'mapped bones:', Object.keys(this.externalBones).length);
+    } catch (err) {\n      window.__ONE_BBM_CHARACTER_MODEL__ = { status: 'failed', url: modelUrl, character: id, error: String(err?.message ?? err) };\n      console.error('[ONE BBM] Realistic model load failed:', modelUrl, err);\n    }
   }
   syncExternalPose() {
     if (!this.externalBones || !this.bones) return;

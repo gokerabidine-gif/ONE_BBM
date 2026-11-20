@@ -23,7 +23,7 @@ if "GLTFLoader" not in s:
       this.externalBones = {}; this.proceduralRest = {}; this.externalRest = {};
       for (const [g, n] of Object.entries(pairs)) { const eb=src.get(n), pb=this.bones?.[g]; if (!eb || !pb) continue; this.externalBones[g]=eb; this.proceduralRest[g]=pb.quaternion.clone(); this.externalRest[g]=eb.quaternion.clone(); }
       this.externalRoot=extRoot; this.root.add(extRoot); this.mesh.visible=false; this.syncExternalPose(); this.root.updateMatrixWorld(true);
-    } catch (err) { console.warn('[ONE BBM] realistic model failed; procedural fallback active', err); }
+    } catch (err) { console.error('[ONE BBM] realistic model failed; no legacy character fallback is allowed', err); }
   }
   syncExternalPose() {
     if (!this.externalBones || !this.bones) return;

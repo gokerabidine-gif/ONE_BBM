@@ -854,12 +854,9 @@ jobs:
           p.write_text(s)
 
           p=Path('src/core/engine.js'); s=p.read_text()
-          old="""  _loop(now) {
-            if (!this._running) return;
-            requestAnimationFrame(this._loop);
-            this.step(now);
-          }"""
-          new="""  _loop(now) {
+          import re
+          loop_pattern=r"  _loop\(now\) \{\n    if \(!this\._running\) return;\n    requestAnimationFrame\(this\._loop\);\n    this\.step\(now\);\n  \}"
+          loop_replacement="""  _loop(now) {
             if (!this._running) return;
             requestAnimationFrame(this._loop);
             if (/Android|iPhone|iPad/i.test(navigator.userAgent || '')) {
@@ -869,8 +866,8 @@ jobs:
             }
             this.step(now);
           }"""
-          if old in s: s=s.replace(old,new,1)
-          elif '_mobileLoopLast' not in s: raise SystemExit('RAF loop anchor missing')
+          s,n=re.subn(loop_pattern,loop_replacement,s,count=1)
+          if n != 1 and '_mobileLoopLast' not in s: raise SystemExit('RAF loop anchor not found by regex')
           p.write_text(s)
 
           p=Path('src/main.js'); s=p.read_text()
@@ -878,7 +875,34 @@ jobs:
                       "targetMs: mobileDevice ? 33.3 : 16.7, slowMs: mobileDevice ? 36 : 23, fastMs: mobileDevice ? 25 : 11",1)
           p.write_text(s)
 
+          # V10.1 visual grade: moderately lift tonal separation and saturation
+          # after the AgX tone map; affects world/buildings and character together.
+          p=Path('src/render/composite.js'); s=p.read_text()
+          anchor="  vec3 col = owAgX( hdr, uLook.x, uLook.y, uLook.z, uAgx.x, uAgx.y, uAgx.z );"
+          grade="""  vec3 col = owAgX( hdr, uLook.x, uLook.y, uLook.z, uAgx.x, uAgx.y, uAgx.z );
+            // V10.1: restrained global contrast and saturation.
+            col = max((col - vec3(0.18)) * 1.10 + vec3(0.18), vec3(0.0));
+            float luma = dot(col, vec3(0.2126, 0.7152, 0.0722));
+            col = mix(vec3(luma), col, 1.06);"""
+          if anchor in s: s=s.replace(anchor,grade,1)
+          elif 'V10.1: restrained global contrast and saturation' not in s: raise SystemExit('Composite grade insertion point missing')
+          p.write_text(s)
+
           Path('src/core/v10thermalprobe.mjs').write_text("""import assert from 'node:assert/strict';
+          import { readFile } from 'node:fs/promises';
+          const [main,gov,render,engine,composite] = await Promise.all([
+            readFile(new URL('../main.js',import.meta.url),'utf8'),
+            readFile(new URL('./governor.js',import.meta.url),'utf8'),
+            readFile(new URL('../render/index.js',import.meta.url),'utf8'),
+            readFile(new URL('./engine.js',import.meta.url),'utf8'),
+            readFile(new URL('../render/composite.js',import.meta.url),'utf8')
+          ]);
+          assert.ok(main.includes('renderScale: 0.52') && main.includes('trafficBudget: 3') && main.includes('pedBudget: 0'));
+          assert.ok(gov.includes('V10: prevent tier escalation') && gov.includes('minScale = 0.48'));
+          assert.ok(render.includes('V10 thermal profile') && engine.includes('const cap = 1000 / 30') && engine.includes('_mobileLoopLast'));
+          assert.ok(composite.includes('V10.1: restrained global contrast and saturation') && composite.includes('1.10') && composite.includes('1.06'));
+          console.log('V10 thermal/grade profile probe: 8 assertions passed');
+          """).write_text("""import assert from 'node:assert/strict';
           import { readFile } from 'node:fs/promises';
           const [main,gov,render,engine] = await Promise.all([
             readFile(new URL('../main.js',import.meta.url),'utf8'),

@@ -1,8 +1,8 @@
 name: Build ONE BBM Android APK
-run-name: ONE BBM V5 — Mobile thermal and frame pacing
+run-name: ONE BBM V6 — Empty-city RP foundation
 
 env:
-  ONE_BBM_VERSION: V5
+  ONE_BBM_VERSION: V6
 
 on:
   workflow_dispatch:
@@ -44,7 +44,7 @@ jobs:
       - name: Upload extracted project source
         uses: actions/upload-artifact@v4
         with:
-          name: ONE-BBM-V4-source
+          name: ONE-BBM-V6-source
           path: ONE-BBM-extracted-source.zip
           if-no-files-found: error
           retention-days: 7
@@ -76,7 +76,7 @@ jobs:
       - name: Upload character model source
         uses: actions/upload-artifact@v4
         with:
-          name: ONE-BBM-V4-character-model
+          name: ONE-BBM-V6-character-model
           path: ONE-BBM-character-model-source.zip
           if-no-files-found: error
           retention-days: 7
@@ -502,6 +502,96 @@ jobs:
           print("Mobile thermal profile and reduced startup shader prewarm applied")
           PY
 
+      - name: V6 remove all NPC and retain vehicles
+        working-directory: ${{ env.PROJECT_DIR }}
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import json
+
+          # The RP foundation is an explicitly empty-city mode: cars and the
+          # player remain, while ambient pedestrians, companions, mission
+          # hostiles, and police actors are disabled at their owning systems.
+          main = Path('src/main.js')
+          ms = main.read_text()
+          marker = "          if (capture) {"
+          if "config.q.pedBudget = 0; // ONE BBM V6" not in ms:
+              if marker not in ms:
+                  raise SystemExit('main config marker missing')
+              ms = ms.replace(marker, "          config.q.pedBudget = 0; // ONE BBM V6: no NPC population; vehicles remain enabled.\n          " + marker, 1)
+          main.write_text(ms)
+
+          p = Path('src/peds/index.js')
+          s = p.read_text()
+          old = "    this.budget = Math.max(4, this.q.pedBudget ?? 40);"
+          new = "    this.noNpc = this.q.pedBudget === 0;\n    this.budget = this.noNpc ? 0 : Math.max(4, this.q.pedBudget ?? 40);"
+          if old in s: s = s.replace(old, new, 1)
+          elif "this.noNpc = this.q.pedBudget === 0;" not in s: raise SystemExit('ped budget anchor missing')
+          s = s.replace("    this.ambientBodies = Math.max(6, Math.min(38, Math.round(this.budget * 0.36)));",
+                        "    this.ambientBodies = this.noNpc ? 0 : Math.max(6, Math.min(38, Math.round(this.budget * 0.36)));", 1)
+          s = s.replace("    this.maxBodies = this.ambientBodies + CREW_MAX + HOSTILE_BODIES;",
+                        "    this.maxBodies = this.noNpc ? 0 : this.ambientBodies + CREW_MAX + HOSTILE_BODIES;", 1)
+          s = s.replace("    this.crewAuto = true;          // spawn them as soon as there is a player",
+                        "    this.crewAuto = !this.noNpc;   // V6 RP: never spawn companion NPCs in the empty city", 1)
+          s = s.replace("    for (const id of SHAPE_IDS) this._variant(id);",
+                        "    if (!this.noNpc) for (const id of SHAPE_IDS) this._variant(id);", 1)
+          s = s.replace("    const w = this.world;\n    let district = null;",
+                        "    if (this.noNpc) return 0;\n    const w = this.world;\n    let district = null;", 1)
+          s = s.replace("  spawnHostile(position, opts) {\n    return this.hostiles.spawn(position, opts);",
+                        "  spawnHostile(position, opts) {\n    if (this.noNpc) return null;\n    return this.hostiles.spawn(position, opts);", 1)
+          s = s.replace("  spawnCrew(ids = null) {\n    this.crewAuto = ids === null;",
+                        "  spawnCrew(ids = null) {\n    if (this.noNpc) return 0;\n    this.crewAuto = ids === null;", 1)
+          s = s.replace("  attachDriver(vehicle, seat = 0, opts = {}) {\n    const ped = this._freePed();",
+                        "  attachDriver(vehicle, seat = 0, opts = {}) {\n    if (this.noNpc) return null; // keep traffic vehicles, but leave every seat empty\n    const ped = this._freePed();", 1)
+          s = s.replace("  _crewStream(dt) {\n", "  _crewStream(dt) {\n    if (this.noNpc) return;\n", 1)
+          update_anchor = "  update(dt, ctx) {\n    const t0 = performance.now();"
+          update_new = "  update(dt, ctx) {\n    if (this.noNpc) { this.stats.live = 0; this.stats.target = 0; this.stats.crew = 0; this.stats.ms = 0; return; }\n    const t0 = performance.now();"
+          if update_anchor in s: s=s.replace(update_anchor, update_new, 1)
+          elif "if (this.noNpc) { this.stats.live = 0;" not in s: raise SystemExit('PedSystem update anchor missing')
+          required = ["this.noNpc = this.q.pedBudget === 0;", "if (this.noNpc) return 0;", "if (this.noNpc) return null;", "if (this.noNpc) return;"]
+          for token in required:
+              if token not in s: raise SystemExit('NPC guard missing: ' + token)
+          p.write_text(s)
+
+          police = Path('src/police/index.js')
+          s = police.read_text()
+          s = s.replace("  spawnCop(crooked = false, opts = {}) {",
+                        "  spawnCop(crooked = false, opts = {}) {\n    if (this.ctx?.config?.q?.pedBudget === 0) return null; // V6 empty-city RP", 1)
+          s = s.replace("  update(dt, ctx) {\n    if (this._staged) {",
+                        "  update(dt, ctx) {\n    if (ctx?.config?.q?.pedBudget === 0) return; // V6: no police NPC simulation\n    if (this._staged) {", 1)
+          if "V6 empty-city RP" not in s or "no police NPC simulation" not in s:
+              raise SystemExit('Police NPC guards were not applied')
+          police.write_text(s)
+
+          # A build-time regression gate: zero NPC budget must stay wired to
+          # the ambient, crew, hostile, driver and police creation paths.
+          Path('src/peds/rpemptyprobe.mjs').write_text("""import assert from 'node:assert/strict';
+          import { readFile } from 'node:fs/promises';
+          const [main,peds,police] = await Promise.all([
+            readFile(new URL('../main.js', import.meta.url),'utf8'),
+            readFile(new URL('./index.js', import.meta.url),'utf8'),
+            readFile(new URL('../police/index.js', import.meta.url),'utf8')
+          ]);
+          assert.match(main,/config\\.q\\.pedBudget = 0; \\/\\/ ONE BBM V6/);
+          assert.match(peds,/this\\.noNpc = this\\.q\\.pedBudget === 0/);
+          assert.match(peds,/if \\(this\\.noNpc\\) return null; \\/\\/ keep traffic vehicles/);
+          assert.match(peds,/if \\(this\\.noNpc\\) return 0/);
+          assert.match(peds,/if \\(this\\.noNpc\\) \\{ this\\.stats\\.live = 0/);
+          assert.match(police,/no police NPC simulation/);
+          assert.match(police,/V6 empty-city RP/);
+          console.log('V6 empty-city NPC suppression probe: 7 assertions passed');
+          """)
+          pkg = Path('package.json')
+          data = json.loads(pkg.read_text())
+          build = data['scripts']['build']
+          gate = 'node src/peds/rpemptyprobe.mjs'
+          if gate not in build:
+              data['scripts']['build'] = build.replace(' && vite build', f' && {gate} && vite build')
+          pkg.write_text(json.dumps(data, indent=2) + '\n')
+          print('V6 empty-city RP: all NPC creation paths disabled; vehicle systems untouched')
+          PY
+
       - name: Persist tuned Android source archive
         working-directory: ${{ env.PROJECT_DIR }}
         continue-on-error: true
@@ -570,7 +660,7 @@ jobs:
         continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
-          name: ONE-BBM-V4-runtime-test
+          name: ONE-BBM-V6-runtime-test
           path: ${{ env.PROJECT_DIR }}/onebbm-runtime.png
           if-no-files-found: error
           retention-days: 7
@@ -613,7 +703,7 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: ONE-BBM-V4-APK
+          name: ONE-BBM-V6-APK
           path: ONE-BBM-${{ env.ONE_BBM_VERSION }}.apk
           if-no-files-found: error
           retention-days: 14

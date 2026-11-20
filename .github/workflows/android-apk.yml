@@ -891,7 +891,7 @@ jobs:
           pkg=Path('package.json'); data=json.loads(pkg.read_text())
           gate='node src/core/v10thermalprobe.mjs'
           if gate not in data['scripts']['build']: data['scripts']['build']=data['scripts']['build'].replace(' && vite build',f' && {gate} && vite build')
-          pkg.write_text(json.dumps(data,indent=2)+'\\n')
+          pkg.write_text(json.dumps(data,indent=2)+'\n')
           print('V10 thermal/frame-budget profile applied')
           PY
 

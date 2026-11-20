@@ -256,7 +256,7 @@ jobs:
           p = Path('android/app/src/main/AndroidManifest.xml')
           s = p.read_text()
           # Ensure accelerated WebView rendering is explicitly enabled, but retain the app's existing manifest structure.
-          m = re.search(r'<application\\b[^>]*>', s, re.S)
+          m = re.search(r'<application\b[^>]*>', s, re.S)
           if not m:
               raise SystemExit('Application tag not found')
           tag = m.group(0)

@@ -161,6 +161,22 @@ jobs:
           print('Android startup safeguards applied')
           PY
 
+      - name: Gate character reveal on completed spawn-city streaming
+        working-directory: ${{ env.PROJECT_DIR }}
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('src/ui/boot.js')
+          s = p.read_text()
+          old = '      if (window.__READY__ === true) this.mark(\'ready\');'
+          new = "      const worldReady = this.ctx?.peek('world')?.streamingIdle?.() === true;\n      if (window.__READY__ === true && worldReady) this.mark('ready');"
+          if old not in s:
+              raise SystemExit('boot readiness anchor missing; refusing an unsafe partial patch')
+          p.write_text(s.replace(old, new, 1))
+          print('Boot loader now waits for initial streamed city to become idle before showing character selection.')
+          PY
+
       - name: Raise player character texture detail to HD resolution
         working-directory: ${{ env.PROJECT_DIR }}
         shell: bash

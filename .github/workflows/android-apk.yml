@@ -127,34 +127,8 @@ jobs:
               raise SystemExit('main.js config insertion point missing')
           s = s.replace(anchor, mobile + anchor, 1)
           # Crash/context-loss reporting and one guarded WebGL recovery reload.
-          diag = """const oneBBMCrashReport = (kind, detail) => {
-  try { localStorage.setItem('onebbm_last_crash', JSON.stringify({ kind, detail: String(detail).slice(0, 1200), time: new Date().toISOString(), url: location.href })); } catch {}
-};
-window.addEventListener('error', e => oneBBMCrashReport('window-error', e.message || e.error?.stack || 'unknown'));
-window.addEventListener('unhandledrejection', e => oneBBMCrashReport('unhandled-rejection', e.reason?.stack || e.reason || 'unknown'));
-const gameCanvas = document.getElementById('game');
-if (gameCanvas) {
-  gameCanvas.addEventListener('webglcontextlost', e => {
-    e.preventDefault();
-    oneBBMCrashReport('webgl-context-lost', 'GPU/WebGL context lost; attempting one guarded recovery');
-    try {
-      if (!sessionStorage.getItem('onebbm_context_recovery')) {
-        sessionStorage.setItem('onebbm_context_recovery', '1');
-        setTimeout(() => location.reload(), 1200);
-      } else {
-        const box = document.createElement('div');
-        box.style.cssText = 'position:fixed;inset:0;z-index:99999;background:#101318;color:#fff;padding:24px;font:16px sans-serif;display:grid;place-content:center;text-align:center';
-        box.textContent = 'Rendering stopped (GPU context lost). Close and reopen ONE BBM to recover.';
-        document.body.appendChild(box);
-      }
-    } catch {}
-  }, false);
-  gameCanvas.addEventListener('webglcontextrestored', () => {
-    try { sessionStorage.removeItem('onebbm_context_recovery'); } catch {}
-  }, false);
-}
-"""
-          s = s.replace(anchor, anchor + "\n" + diag, 1)
+          diag = "window.addEventListener('error',e=>{try{localStorage.setItem('onebbm_last_crash',JSON.stringify({kind:'window-error',detail:e.message||'unknown',time:Date.now()}))}catch{}});window.addEventListener('unhandledrejection',e=>{try{localStorage.setItem('onebbm_last_crash',JSON.stringify({kind:'unhandled-rejection',detail:String(e.reason||'unknown'),time:Date.now()}))}catch{}});const gameCanvas=document.getElementById('game');if(gameCanvas)gameCanvas.addEventListener('webglcontextlost',e=>{e.preventDefault();try{localStorage.setItem('onebbm_last_crash',JSON.stringify({kind:'webgl-context-lost',time:Date.now()}));if(!sessionStorage.getItem('onebbm_context_recovery')){sessionStorage.setItem('onebbm_context_recovery','1');setTimeout(()=>location.reload(),1200)}}catch{}},false);"
+          s = s.replace(anchor, anchor + "\\n" + diag, 1)
           old = "const warmup = params.get('prewarm') === '0' ? { ok: false, reason: 'disabled by ?prewarm=0' } : await prewarm(engine);"
           new = "const isAndroidMobile = /Android/i.test(navigator.userAgent);\nconst warmup = (isAndroidMobile || params.get('prewarm') === '0') ? { ok: false, reason: 'disabled for Android/mobile startup' } : await prewarm(engine);"
           if old not in s:

@@ -128,7 +128,7 @@ jobs:
           s = s.replace(anchor, mobile + anchor, 1)
           # Crash/context-loss reporting and one guarded WebGL recovery reload.
           diag = "window.addEventListener('error',e=>{try{localStorage.setItem('onebbm_last_crash',JSON.stringify({kind:'window-error',detail:e.message||'unknown',time:Date.now()}))}catch{}});window.addEventListener('unhandledrejection',e=>{try{localStorage.setItem('onebbm_last_crash',JSON.stringify({kind:'unhandled-rejection',detail:String(e.reason||'unknown'),time:Date.now()}))}catch{}});const gameCanvas=document.getElementById('game');if(gameCanvas)gameCanvas.addEventListener('webglcontextlost',e=>{e.preventDefault();try{localStorage.setItem('onebbm_last_crash',JSON.stringify({kind:'webgl-context-lost',time:Date.now()}));if(!sessionStorage.getItem('onebbm_context_recovery')){sessionStorage.setItem('onebbm_context_recovery','1');setTimeout(()=>location.reload(),1200)}}catch{}},false);"
-          s = s.replace(anchor, anchor + "\\n" + diag, 1)
+          s = s.replace(anchor, anchor + "\n" + diag, 1)
           old = "const warmup = params.get('prewarm') === '0' ? { ok: false, reason: 'disabled by ?prewarm=0' } : await prewarm(engine);"
           new = "const isAndroidMobile = /Android/i.test(navigator.userAgent);\nconst warmup = (isAndroidMobile || params.get('prewarm') === '0') ? { ok: false, reason: 'disabled for Android/mobile startup' } : await prewarm(engine);"
           if old not in s:

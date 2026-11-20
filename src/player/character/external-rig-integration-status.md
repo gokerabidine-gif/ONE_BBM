@@ -1,19 +1,22 @@
 # Realistic character replacement — verified integration status
 
 ## Asset inspected
-The source artifact contains one skinned mesh, 24 joints and two clips named `walk` and `run` (72 channels each). Joint names and hierarchy were inspected from the GLB JSON.
+The imported GLB has one skinned mesh, 24 source joints, and two clips named `walk` and `run` (72 channels each).
 
-## Compatibility findings
-The current player animator expects 24 named joints including `handEndL` and `handEndR`. The imported GLB does not contain these hand-end joints; it has an additional spine joint and a helper `headfront` joint. Imported joint translations are centimetres, while the game rig is authored in metres. The rest pose and bind matrices also require calibration.
+## Adapter preparation now committed
+- `Spine02 → spine`, `Spine01 → chest`
+- The extra source `Spine` joint is excluded from the game's named-bone map (not incorrectly mapped to a nonexistent `chestAux`).
+- `headfront` is excluded as a helper.
+- `handEndL` and `handEndR` are declared virtual IK references; the loader creates these when absent.
+- A retarget policy helper documents centimetres-to-metres conversion and the required calibration checks.
 
-The validator now **fails** if joints are missing, unmapped, duplicated/aliased, or mapped outside the animator's expected names. This model is not directly compatible yet.
-
-## Integration gate
+## Remaining integration gate
 - [ ] normalize scale and root orientation to metres / +Y up / -Z forward
-- [ ] calibrate bind pose and hierarchy
-- [ ] synthesize missing hand-end joints or adapt IK
-- [ ] safely exclude helper head-front joint
+- [ ] calibrate bind pose and hierarchy against the live player rig
+- [ ] verify synthesized hand-end directions and weapon-hand alignment
+- [ ] foot-ground alignment and root motion check
 - [ ] test weapon hand, aiming IK, gait, idle, crouch, jump, swim, vehicle poses
-- [ ] compare three brothers and ensure side NPCs are untouched
+- [ ] compare all three brothers; ensure side NPCs remain untouched
+- [ ] build and test an APK with the replacement active
 
-No playable brother is replaced until these gates pass.
+The structural bone map is improved, but the live player mesh is **not replaced** and no APK with this replacement has been built yet.

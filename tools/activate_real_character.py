@@ -5,9 +5,9 @@ if not model.is_file() or model.stat().st_size < 1_000_000: raise SystemExit('ri
 out=project/'public/models/player-realistic.glb'; out.parent.mkdir(parents=True,exist_ok=True); shutil.copy2(model,out)
 p=project/'src/player/character/index.js'; s=p.read_text()
 if "GLTFLoader" not in s:
- s=s.replace("import { buildTextures, disposeTextures } from './textures.js';", "import { buildTextures, disposeTextures } from './textures.js';\\nimport { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';")
- s=s.replace("    this._parent = null;", "    this._parent = null;\\n    this.externalRoot = null; this.externalBones = null; this.externalRest = null; this.proceduralRest = null; this._externalLoadToken = 0;")
- s=s.replace("    if (keep) keep.add(this.root);\\n    this.root.visible = this.visible;\\n    return this.root;", "    if (keep) keep.add(this.root);\\n    this.root.visible = this.visible;\\n    this._loadRealisticModel(spec.id);\\n    return this.root;")
+ s=s.replace("import { buildTextures, disposeTextures } from './textures.js';", "import { buildTextures, disposeTextures } from './textures.js';\nimport { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';")
+ s=s.replace("    this._parent = null;", "    this._parent = null;\n    this.externalRoot = null; this.externalBones = null; this.externalRest = null; this.proceduralRest = null; this._externalLoadToken = 0;")
+ s=s.replace("    if (keep) keep.add(this.root);\n    this.root.visible = this.visible;\n    return this.root;", "    if (keep) keep.add(this.root);\n    this.root.visible = this.visible;\n    this._loadRealisticModel(spec.id);\n    return this.root;")
  method='''
   /** Async replacement body; procedural rig remains animation/IK driver. */
   async _loadRealisticModel(id) {
@@ -30,11 +30,11 @@ if "GLTFLoader" not in s:
     for (const [name, ext] of Object.entries(this.externalBones)) { const proc=this.bones[name], pr=this.proceduralRest[name], er=this.externalRest[name]; if (!proc||!pr||!er) continue; const delta=pr.clone().invert().multiply(proc.quaternion); ext.quaternion.copy(er).multiply(delta); }
   }
 '''
- s=s.replace("  _material(name) {", method+"\\n  _material(name) {")
- s=s.replace("    if (this.root?.parent) this.root.parent.remove(this.root);", "    this._externalLoadToken++; if (this.externalRoot?.parent) this.externalRoot.parent.remove(this.externalRoot); this.externalRoot=null; this.externalBones=null;\\n    if (this.root?.parent) this.root.parent.remove(this.root);")
+ s=s.replace("  _material(name) {", method+"\n  _material(name) {")
+ s=s.replace("    if (this.root?.parent) this.root.parent.remove(this.root);", "    this._externalLoadToken++; if (this.externalRoot?.parent) this.externalRoot.parent.remove(this.externalRoot); this.externalRoot=null; this.externalBones=null;\n    if (this.root?.parent) this.root.parent.remove(this.root);")
  p.write_text(s)
 p=project/'src/player/anim/animator.js'; s=p.read_text()
 if 'rig.syncExternalPose?.();' not in s:
- s=s.replace('    rig.root.updateMatrixWorld(true);\\n  }\\n\\n  /** Interpolate', '    rig.syncExternalPose?.();\\n    rig.root.updateMatrixWorld(true);\\n  }\\n\\n  /** Interpolate',1)
+ s=s.replace('    rig.root.updateMatrixWorld(true);\n  }\n\n  /** Interpolate', '    rig.syncExternalPose?.();\n    rig.root.updateMatrixWorld(true);\n  }\n\n  /** Interpolate',1)
  p.write_text(s)
 print('realistic replacement patch applied')

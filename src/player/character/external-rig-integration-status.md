@@ -1,18 +1,19 @@
-# Imported realistic character rig — compatibility status
+# Realistic character replacement — verified integration status
 
-## Asset verified
-- Rigged GLB: 11,354,468 bytes.
-- One skinned mesh, 24 skin joints, two animation clips (`walk`, `run`), 72 channels each.
-- FBX companion included in the verified archive.
+## Asset inspected
+The source artifact contains one skinned mesh, 24 joints and two clips named `walk` and `run` (72 channels each). Joint names and hierarchy were inspected from the GLB JSON.
 
-## Name mapping prototype
-`external-bone-map.js` maps external joint names to the existing player rig names. This is a diagnostic/preparation step, not a runtime replacement.
+## Compatibility findings
+The current player animator expects 24 named joints including `handEndL` and `handEndR`. The imported GLB does not contain these hand-end joints; it has an additional spine joint and a helper `headfront` joint. Imported joint translations are centimetres, while the game rig is authored in metres. The rest pose and bind matrices also require calibration.
 
-## Required before replacing the three playable brothers
-1. Load with Three.js GLTFLoader and inspect mesh/root transforms and bind matrices.
-2. Retarget imported bind pose to the game's procedural rig (or derive a compatible skeleton) while preserving scale and forward-axis conventions.
-3. Preserve CharacterRig/Animator contracts: named bones, weapon hand, aim IK, crouch, jump, seat poses, camera fade, disposal.
-4. Run head/identity, aim, hand, shirt/camera, drive/seat, and gait probes plus visual comparison.
-5. Only after tests pass, replace the mesh factory for the three brothers; side NPCs remain untouched.
+The validator now **fails** if joints are missing, unmapped, duplicated/aliased, or mapped outside the animator's expected names. This model is not directly compatible yet.
 
-Imported clips are not yet used: the player is currently driven by a procedural animator, so applying GLB clips directly would conflict with that controller.
+## Integration gate
+- [ ] normalize scale and root orientation to metres / +Y up / -Z forward
+- [ ] calibrate bind pose and hierarchy
+- [ ] synthesize missing hand-end joints or adapt IK
+- [ ] safely exclude helper head-front joint
+- [ ] test weapon hand, aiming IK, gait, idle, crouch, jump, swim, vehicle poses
+- [ ] compare three brothers and ensure side NPCs are untouched
+
+No playable brother is replaced until these gates pass.

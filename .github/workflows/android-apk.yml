@@ -934,10 +934,10 @@ jobs:
           import { readFile } from 'node:fs/promises';
           const s = await readFile(new URL('./index.js', import.meta.url), 'utf8');
           assert.match(s, /V11: start near spawn/);
-          assert.match(s, /_streamRadiusCurrent.*dt \\* 45/);
-          assert.match(s, /_streamTiles\\(cx, cz, activeRadius\\)/);
-          assert.match(s, /_streamSectors\\(cx, cz, Math\\.min\\(activeRadius, SECTOR_RADIUS_MAX\\)\\)/);
-          assert.match(s, /SECTOR_ATTACH_PER_FRAME = 3/);
+          assert.ok(s.includes('(_streamRadiusCurrent ?? 60) + dt * 45'));
+          assert.ok(s.includes('_streamTiles(cx, cz, activeRadius)'));
+          assert.ok(s.includes('_streamSectors(cx, cz, Math.min(activeRadius, SECTOR_RADIUS_MAX))'));
+          assert.ok(s.includes('SECTOR_ATTACH_PER_FRAME = 3'));
           console.log('V11 staged streaming and upload pacing probe: 5 assertions passed');
           """)
           pkg = Path('package.json')
@@ -945,7 +945,7 @@ jobs:
           gate = 'node src/world/v11streamprobe.mjs'
           if gate not in d['scripts']['build']:
               d['scripts']['build'] = d['scripts']['build'].replace(' && vite build', f' && {gate} && vite build')
-          pkg.write_text(json.dumps(d, indent=2) + '\\n')
+          pkg.write_text(json.dumps(d, indent=2) + '\n')
           print('V11 staged streaming and upload pacing applied')
           PY
 

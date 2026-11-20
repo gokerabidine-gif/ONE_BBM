@@ -1,0 +1,15 @@
+import fs from 'node:fs';
+import { validateExternalSkeleton } from '../src/player/character/external-bone-map.js';
+const glbPath = process.argv[2];
+if (!glbPath) throw new Error('Usage: node tools/validate-external-rig-map.mjs <rigged.glb>');
+const b = fs.readFileSync(glbPath);
+if (b.toString('ascii', 0, 4) !== 'glTF') throw new Error('Not a GLB');
+const jsonLength = b.readUInt32LE(12);
+const json = JSON.parse(b.toString('utf8', 20, 20 + jsonLength));
+const skin = json.skins?.[0];
+if (!skin) throw new Error('GLB has no skin');
+const names = skin.joints.map((i) => json.nodes[i]?.name ?? `joint_${i}`);
+const gameNames = ['hips','spine','chest','neck','head','headEnd','clavR','armR','forearmR','handR','handEndR','thighR','shinR','footR','toeR','clavL','armL','forearmL','handL','handEndL','thighL','shinL','footL','toeL'];
+const result = validateExternalSkeleton(names, gameNames);
+console.log(JSON.stringify({meshCount: json.meshes?.length ?? 0, skinJointCount: names.length, animations: (json.animations ?? []).map((a) => ({name:a.name, channelCount:a.channels?.length ?? 0})), mapping:result}, null, 2));
+if (!result.ok) process.exitCode = 1;

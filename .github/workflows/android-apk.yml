@@ -403,7 +403,7 @@ jobs:
           method_start = s.find("  _queueFarSectors() {")
           if method_start < 0:
               raise SystemExit('Actual _queueFarSectors method missing')
-          method_end = s.find("\\n  /*", method_start)
+          method_end = s.find("\n  /*", method_start)
           if method_end < 0:
               raise SystemExit('Could not locate end of _queueFarSectors method')
           method = s[method_start:method_end]

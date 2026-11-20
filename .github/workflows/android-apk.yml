@@ -1,8 +1,8 @@
 name: Build ONE BBM Android APK
-run-name: ONE BBM V2 — In-game Visual Upgrade
+run-name: ONE BBM V3 — Corrected City Detail LOD
 
 env:
-  ONE_BBM_VERSION: V2
+  ONE_BBM_VERSION: V3
 
 on:
   workflow_dispatch:
@@ -327,6 +327,60 @@ jobs:
           print('ONE BBM V2 in-game visual detail upgrade applied')
           PY
 
+      - name: Correct facade LOD threshold direction
+        working-directory: ${{ env.PROJECT_DIR }}
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          quality = Path('src/buildings/quality.js')
+          s = quality.read_text()
+          s, n = re.subn(
+              r"export function facadeLodScale\(quality\) \{.*?\n\}",
+              """export function facadeLodScale(quality) {
+            // cull.js divides the LOD threshold by this value. Values below
+            // one therefore keep high-detail facade bands visible farther away.
+            if (quality === 'ultra') return 1 / 1.16;
+            if (quality === 'high') return 1 / 1.12;
+            if (quality === 'medium') return 1 / 1.08;
+            return 1 / 1.03;
+          }""",
+              s, count=1, flags=re.S
+          )
+          if n != 1:
+              raise SystemExit('Could not locate facadeLodScale implementation')
+          quality.write_text(s)
+
+          tile = Path('src/buildings/tile.js')
+          s = tile.read_text()
+          old = "Math.max(1, Math.min(1.2, Number(opts.lodScale) || 1))"
+          new = "Math.max(0.84, Math.min(1, Number(opts.lodScale) || 1))"
+          if old in s:
+              s = s.replace(old, new, 1)
+          elif new not in s:
+              raise SystemExit('Unexpected facade LOD scale clamp')
+          tile.write_text(s)
+
+          probe = Path('src/buildings/qualityprobe.mjs')
+          s = probe.read_text()
+          s = re.sub(
+              r"assert\.equal\(facadeLodScale\('low'\),.*?console\.log\('facade LOD scale probe: 4 assertions passed'\);",
+              """assert.ok(Math.abs(facadeLodScale('low') * 1.03 - 1) < 1e-10);
+          assert.ok(Math.abs(facadeLodScale('medium') * 1.08 - 1) < 1e-10);
+          assert.ok(Math.abs(facadeLodScale('high') * 1.12 - 1) < 1e-10);
+          assert.ok(Math.abs(facadeLodScale('ultra') * 1.16 - 1) < 1e-10);
+          assert.ok(facadeLodScale('ultra') < facadeLodScale('low'));
+          console.log('facade LOD direction probe: 5 assertions passed');""",
+              s, count=1, flags=re.S
+          )
+          if 'facade LOD direction probe: 5 assertions passed' not in s:
+              raise SystemExit('Could not update facade LOD assertions')
+          probe.write_text(s)
+          print('ONE BBM V3 corrected facade LOD threshold direction')
+          PY
+
       - name: Persist tuned Android source archive
         working-directory: ${{ env.PROJECT_DIR }}
         continue-on-error: true
@@ -395,7 +449,7 @@ jobs:
         continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
-          name: ONE-BBM-V2-runtime-test
+          name: ONE-BBM-V3-runtime-test
           path: ${{ env.PROJECT_DIR }}/onebbm-runtime.png
           if-no-files-found: error
           retention-days: 7
@@ -438,7 +492,7 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: ONE-BBM-V2-APK
-          path: ONE-BBM-V2.apk
+          name: ONE-BBM-V3-APK
+          path: ONE-BBM-V3.apk
           if-no-files-found: error
           retention-days: 14

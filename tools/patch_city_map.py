@@ -358,11 +358,11 @@ mapGateButton.addEventListener('click', async () => {
     mapGateButton.textContent = 'RETRY DOWNLOAD';
   }
 });
-'''
 if (capture || params.get('boot') === '0' || navigator.webdriver) {
   mapGateStatus.textContent = 'Automated startup: downloading the required map…';
   mapGateButton.click();
 }
+'''
 if gate_anchor not in main: raise SystemExit('engine init gate anchor missing')
 if 'onebbm-map-gate' not in main:
     main = main.replace(gate_anchor, gate + "\n" + gate_anchor, 1)

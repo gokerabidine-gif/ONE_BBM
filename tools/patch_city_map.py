@@ -377,10 +377,10 @@ if 'ONE BBM boot-time world hold' not in world:
     update_anchor = "  update(dt, ctx) {\n    const cam = ctx.camera;"
     if update_anchor not in world: raise SystemExit('world update anchor missing')
     world = world.replace(update_anchor, "  update(dt, ctx) {\n    // No city rendering/streaming work while character selection is on screen.\n    if (!this._bootActive) return;\n    const cam = ctx.camera;", 1)
-    far_anchor = "    /* ---- 6. the far road network, so the city reads to the horizon ----- */\\n    this._queueFarSectors();"
-if far_anchor not in world: raise SystemExit('far-sector init anchor missing')
-world = world.replace(far_anchor, "    /* ---- 6. far sectors deferred while boot selection is active ----- */\\n    if (this._bootActive) this._queueFarSectors();", 1)
-world_path.write_text(world)
+    far_anchor = "    /* ---- 6. the far road network, so the city reads to the horizon ----- */\n    this._queueFarSectors();"
+    if far_anchor not in world: raise SystemExit('far-sector init anchor missing')
+    world = world.replace(far_anchor, "    /* ---- 6. far sectors deferred while boot selection is active ----- */\n    if (this._bootActive) this._queueFarSectors();", 1)
+    world_path.write_text(world)
 
 # Center and compact the map-download / character-selection controls.
 style_path = root / 'src/ui/style.js'

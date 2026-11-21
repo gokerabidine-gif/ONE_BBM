@@ -285,7 +285,12 @@ s = s.replace(old, '  *_bakeGroundAoWork() {', 1)
 old = '''        if (p[i + 2] > z1) z1 = p[i + 2];
       }
     }
-    // The grid is bounded'''
+    if (!Number.isFinite(x0)) return;'''
+new = '''        if (p[i + 2] > z1) z1 = p[i + 2];
+      }
+      yield;
+    }
+    if (!Number.isFinite(x0)) return;'''
 new = '''        if (p[i + 2] > z1) z1 = p[i + 2];
       }
       yield;

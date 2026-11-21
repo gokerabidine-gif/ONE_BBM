@@ -283,7 +283,6 @@ newNear = """  async _buildNear(rec) {
       setVisible(rec.far, false);
       return;
     }
-    rec.nearBuilding = false;
     this._buildTileInSlices(rec, 0);
   }"""
 if 'async _buildNear(rec)' not in s:

@@ -380,6 +380,23 @@ jobs:
         working-directory: ${{ env.PROJECT_DIR }}/android
         run: ./gradlew assembleDebug
 
+      - name: Publish verified city map package to stable download branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          PUBLISH_DIR="$RUNNER_TEMP/onebbm-map-publish"
+          rm -rf "$PUBLISH_DIR"
+          git worktree add --detach "$PUBLISH_DIR" "$GITHUB_SHA"
+          git -C "$PUBLISH_DIR" switch --orphan map-assets-publish
+          git -C "$PUBLISH_DIR" rm -rf . >/dev/null
+          mkdir -p "$PUBLISH_DIR/maps"
+          cp "$PROJECT_DIR/map-package/steel-city-v2.json.gz" "$PUBLISH_DIR/maps/"
+          cp "$PROJECT_DIR/map-package/steel-city-v2.manifest.json" "$PUBLISH_DIR/maps/"
+          git -C "$PUBLISH_DIR" add maps/
+          git -C "$PUBLISH_DIR" -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" commit -m "Publish Steel City map v2"
+          git -C "$PUBLISH_DIR" push --force origin HEAD:refs/heads/map-assets
+          git worktree remove --force "$PUBLISH_DIR"
+
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:

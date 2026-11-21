@@ -579,4 +579,23 @@ for old, new in replacements:
     s = s.replace(old, new, 1)
 p.write_text(s)
 
-print('Lag slicing + Carson-only selectable roster applied')
+
+# Freeze the city-generation seed. A downloadable/cached map must describe one
+# stable city; the previous ctx.rng.fork() inherited Math.random() on normal
+# launches, so each install could generate a different road/block/lot layout.
+p = root / 'src/world/index.js'
+s = p.read_text()
+old = "import { Router } from './route.js';"
+new = "import { Router } from './route.js';\\nimport { Rng } from '../core/rng.js';"
+if old not in s:
+    raise SystemExit('world RNG import anchor missing')
+s = s.replace(old, new, 1)
+old = "    this.rng = ctx.rng.fork();"
+new = "    this.rng = new Rng(0x5eed1234); // Steel City map seed v1"
+if old not in s:
+    raise SystemExit('world RNG seed anchor missing')
+s = s.replace(old, new, 1)
+p.write_text(s)
+
+print('Lag slicing + Carson-only roster + deterministic Steel City seed applied')
+

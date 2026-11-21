@@ -174,7 +174,7 @@ export function loadSteelCityMap() {
       console.warn('[map] cached package rejected; attempting fresh download', err);
     }
     report('missing', 0, 0, 'Map not downloaded. Use the manual download button.');
-    console.info('[map] no installed map package; procedural fallback is used until manual download');
+    console.info('[map] no installed map package; gameplay is blocked until manual download');
     return null;
   })().finally(() => { loading = null; });
   return loading;
@@ -255,12 +255,8 @@ new_init = r'''    const t0 = performance.now();
       this.rng.s3 = mapPack.rngState.s3;
       console.info('[world] verified offline Steel City map package loaded', mapPack.counts);
     } else {
-      this.terrain.bake();
-      resetLotIds();
-      city = generateCity(this.terrain, this.rng.fork());
-      const divided = subdivide(city.blocks, this.terrain, this.rng.fork());
-      lots = divided.lots;
-      byTile = divided.byTile;
+      // Fail closed: gameplay must never start with a procedural/placeholder city.
+      throw new Error('[world] FULL STEEL CITY MAP REQUIRED. Download the verified map package before entering the city.');
     }
     const tBake = performance.now();
 
@@ -400,4 +396,4 @@ if prewarm_anchor in main and 'ONE BBM Android prewarm bypass' not in main:
     replacement = "const isAndroidWebView = /Android/i.test(navigator.userAgent);\n// ONE BBM Android prewarm bypass: avoid prolonged startup GPU work on phones.\nconst warmup = (params.get('prewarm') === '0' || isAndroidWebView)\n  ? { ok: false, reason: isAndroidWebView ? 'deferred for Android startup thermal load' : 'disabled by ?prewarm=0' }\n  : await prewarm(engine);"
     main = main.replace(prewarm_anchor, replacement, 1)
     main_path.write_text(main)
-print('Verified full-city map cache, downloader, world restore, and boot-screen map control applied')
+print('Verified full-city map cache, downloader, fail-closed world gate, and boot-screen map control applied')

@@ -5,7 +5,7 @@ import sys
 root = Path(sys.argv[1])
 
 road_module = r'''import * as THREE from 'three';
-const DB='one-bbm-road-sector-cache-v1', STORE='sectors', VERSION=1, LIMIT=12*1024*1024;
+const DB='one-bbm-road-sector-cache-v1', STORE='sectors', VERSION=1, LIMIT=24*1024*1024;
 function openDb(){return new Promise((resolve,reject)=>{const r=indexedDB.open(DB,1);r.onupgradeneeded=()=>{if(!r.result.objectStoreNames.contains(STORE))r.result.createObjectStore(STORE,{keyPath:'key'});};r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error);});}
 function req(r){return new Promise((resolve,reject)=>{r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error);});}
 async function read(key){const db=await openDb();try{return await req(db.transaction(STORE,'readonly').objectStore(STORE).get(key));}finally{db.close();}}

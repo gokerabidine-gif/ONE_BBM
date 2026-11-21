@@ -147,7 +147,7 @@ jobs:
           if old_step not in g: raise SystemExit('governor trim step anchor missing')
           governor_path.write_text(g.replace(old_step, new_step, 1))
           old = "const warmup = params.get('prewarm') === '0' ? { ok: false, reason: 'disabled by ?prewarm=0' } : await prewarm(engine);"
-          new = "const warmup = (isAndroidMobile || params.get('prewarm') === '0') ? { ok: false, reason: 'disabled for Android/mobile startup' } : await prewarm(engine);"
+          new = "const warmup = params.get('prewarm') === '0' ? { ok: false, reason: 'disabled by ?prewarm=0' } : await prewarm(engine);"
           if old not in s:
               raise SystemExit('main.js prewarm line missing')
           p.write_text(s.replace(old, new, 1))

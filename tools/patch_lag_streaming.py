@@ -180,4 +180,48 @@ for old, new, error in repls:
     if old not in s: raise SystemExit(error)
     s = s.replace(old, new, 1)
 p.write_text(s)
-print('Lag slicing patch applied')
+
+# Startup: allow the loading UI to paint between subsystem initializers.
+# This preserves each subsystem's data and rendering settings; it only prevents
+# a chain of independent synchronous initializers from occupying one long task.
+p = root / 'src/core/engine.js'
+s = p.read_text()
+old = '''      if (ms > 50) console.info(`[engine] ${sys.constructor.id} init ${ms.toFixed(0)}ms`);
+    }'''
+new = '''      console.info(`[engine] ${sys.constructor.id} init ${ms.toFixed(0)}ms`);
+      // Yield one display frame between systems so the boot/loading UI can paint
+      // and touch input remains responsive while the next system is prepared.
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+    }'''
+if old not in s: raise SystemExit('engine init timing anchor missing')
+s = s.replace(old, new, 1)
+p.write_text(s)
+
+# World generation is CPU-heavy but independent stages can be separated safely.
+# The expensive stage itself remains unchanged; the loading screen gets a frame
+# between terrain baking, city planning and lot subdivision.
+p = root / 'src/world/index.js'
+s = p.read_text()
+old = '''    this.terrain.bake();
+    const tBake = performance.now();'''
+new = '''    this.terrain.bake();
+    const tBake = performance.now();
+    await new Promise((resolve) => requestAnimationFrame(resolve));'''
+if old not in s: raise SystemExit('terrain bake anchor missing')
+s = s.replace(old, new, 1)
+old = '''    const city = generateCity(this.terrain, this.rng.fork());
+    this.roads = city.graph;'''
+new = '''    const city = generateCity(this.terrain, this.rng.fork());
+    await new Promise((resolve) => requestAnimationFrame(resolve));
+    this.roads = city.graph;'''
+if old not in s: raise SystemExit('city generation anchor missing')
+s = s.replace(old, new, 1)
+old = '''    const { lots, byTile } = subdivide(city.blocks, this.terrain, this.rng.fork());
+    this.lots = lots;'''
+new = '''    const { lots, byTile } = subdivide(city.blocks, this.terrain, this.rng.fork());
+    await new Promise((resolve) => requestAnimationFrame(resolve));
+    this.lots = lots;'''
+if old not in s: raise SystemExit('lot subdivision anchor missing')
+s = s.replace(old, new, 1)
+p.write_text(s)
+print('Lag slicing + staged startup initialization applied')

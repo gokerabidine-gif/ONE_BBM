@@ -520,25 +520,36 @@ s = s.replace(old, new, 1)
 p.write_text(s)
 
 
-# Hold the character-select handoff until the initial city stream is truly idle.
-# world:ready is emitted by WorldSystem only after terrain, road sectors and the
-# shared world/buildings/props queue have drained. __READY__ alone is only a
-# three-frame render handshake and must not expose a half-built spawn area.
-p = root / 'src/ui/boot.js'
+# The current boot flow has no WorldSystem.streamingIdle() API. Do not gate
+# readiness on a guessed method; keep the existing real-frame handshake intact.
+
+# Keep Carson (the first/original character) as the sole selectable character.
+# Restrict the UI roster, which drives boot cards and the character wheel, while
+# leaving NPC/story definitions intact so existing world content stays valid.
+p = root / 'src/ui/data.js'
 s = p.read_text()
-old = """      if (window.__READY__ === true) this.mark('ready');"""
-new = """      if (window.__READY__ === true) {
-        const world = this.ctx?.peek?.('world');
-        const cityReady =
-          !world ||
-          typeof world.streamingIdle !== 'function' ||
-          world.streamingIdle();
-        if (cityReady) this.mark('ready');
-      }"""
+old = 'export const BOYZ = ['
+new = 'const ALL_BOYZ = ['
 if old not in s:
-    raise SystemExit('boot ready handshake anchor missing')
+    raise SystemExit('UI BOYZ roster anchor missing')
+s = s.replace(old, new, 1)
+old = 'export const BOY_BY_ID = Object.fromEntries(BOYZ.map((b) => [b.id, b]));'
+new = '''// ONE_BBM currently exposes Carson only as the playable/selectable character.
+export const BOYZ = ALL_BOYZ.slice(0, 1);
+export const BOY_BY_ID = Object.fromEntries(BOYZ.map((b) => [b.id, b]));'''
+if old not in s:
+    raise SystemExit('UI BOY_BY_ID anchor missing')
 s = s.replace(old, new, 1)
 p.write_text(s)
 
+# Ensure a fresh UI session starts with Carson, not the old Aidan default.
+p = root / 'src/ui/index.js'
+s = p.read_text()
+old = "character: 'aidan', station: 'grease',"
+new = "character: 'carson', station: 'slack',"
+if old not in s:
+    raise SystemExit('UI default character anchor missing')
+s = s.replace(old, new, 1)
+p.write_text(s)
 
-print('Lag slicing + staged startup initialization applied')
+print('Lag slicing + Carson-only selectable roster applied')

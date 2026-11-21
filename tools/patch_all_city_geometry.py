@@ -21,7 +21,7 @@ export async function restoreRoadSector(sx,sz,builder){
   const loader=new THREE.BufferGeometryLoader();
   for(const item of data.meshes){
    const mesh=new THREE.Mesh(loader.parse(item.geometry),builder._mat(item.materialKey));
-   mesh.name=item.name;mesh.matrix.fromArray(item.matrix);mesh.matrixAutoUpdate=item.matrixAutoUpdate;
+   mesh.name=item.name;mesh.matrix.fromArray(item.matrix);mesh.matrixAutoUpdate=false;
    mesh.receiveShadow=item.receiveShadow;mesh.castShadow=item.castShadow;mesh.visible=item.visible;
    mesh.renderOrder=item.renderOrder;mesh.userData=item.userData??{};group.add(mesh);
   }
@@ -76,7 +76,7 @@ function decode(n,lib,loader){
   o.instanceMatrix.needsUpdate=true;o.computeBoundingSphere();o.computeBoundingBox();
  }else if(n.type==='mesh'){o=new THREE.Mesh(loader.parse(n.geometry),lib.matFor(n.materialKey));o.name=n.name;}
  else{o=new THREE.Group();o.name=n.name;}
- if(n.matrix)o.matrix.fromArray(n.matrix);o.matrixAutoUpdate=n.matrixAutoUpdate!==false;o.visible=n.visible!==false;o.renderOrder=n.renderOrder??0;o.userData=n.userData??{};
+ if(n.matrix)o.matrix.fromArray(n.matrix);o.matrixAutoUpdate=false;o.visible=n.visible!==false;o.renderOrder=n.renderOrder??0;o.userData=n.userData??{};
  if('castShadow'in n)o.castShadow=n.castShadow;if('receiveShadow'in n)o.receiveShadow=n.receiveShadow;if('frustumCulled'in n)o.frustumCulled=n.frustumCulled;
  for(let i=0;i<n.children.length;i++){const c=decode(n.children[i],lib,loader);if(n.type==='lod')o.addLevel(c,n.levels?.[i]??0);else o.add(c);}
  return o;

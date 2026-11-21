@@ -8,6 +8,7 @@ const DB = 'one-bbm-static-geometry-v1';
 const STORE = 'building-far-tiles';
 const VERSION = 1;
 const MAX_TILE_BYTES = 8 * 1024 * 1024;
+const INVISIBLE = new THREE.MeshBasicMaterial({ visible: false });
 
 function openDb() {
   return new Promise((resolve, reject) => {
@@ -182,7 +183,7 @@ export async function restoreNearTile(tx, tz, lib) {
     const loader = new THREE.BufferGeometryLoader();
     const group = decodeNode(json.root, lib, loader);
     const colMeshes = (json.colliders ?? []).map((c) => {
-      const mesh = new THREE.Mesh(loader.parse(c.geometry), new THREE.MeshBasicMaterial({ visible: false }));
+      const mesh = new THREE.Mesh(loader.parse(c.geometry), INVISIBLE);
       mesh.name = c.name;
       mesh.visible = false;
       mesh.matrixAutoUpdate = false;

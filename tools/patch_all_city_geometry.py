@@ -104,7 +104,7 @@ export function schedulePropTileSave(rec,out,group,lib){
  const idle=globalThis.requestIdleCallback;if(idle)idle(()=>void save(),{timeout:3500});else setTimeout(()=>void save(),1800);
 }
 export function disposePropTile(tile){
- for(const m of tile?.meshes??[]){m.geometry?.dispose();if(m.isInstancedMesh)m.dispose();m.parent?.remove(m);}
+ for(const m of tile?.meshes??[]){if(m.isInstancedMesh)m.dispose?.();else m.geometry?.dispose();m.parent?.remove(m);}
  for(const c of tile?.colliders??[]){c.mesh.geometry?.dispose();}
  tile?.group?.parent?.remove(tile.group);
 }

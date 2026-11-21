@@ -82,6 +82,7 @@ new = r'''  _buildFar(rec) {
     this.schedule(pump, priority);
   }
 '''
+new = new.replace(r'\`', '`').replace(r'\${', '${')
 s = s[:start] + new + s[end:]
 p.write_text(s)
 
@@ -112,6 +113,7 @@ new = '''  _rebuild(lv, cx, cz, hx, hz, schedule) {
 
   *_rebuildWork(lv, cx, cz, hx, hz) {'''
 if old not in s: raise SystemExit('terrain method anchor missing')
+new = new.replace(r'\`', '`').replace(r'\${', '${')
 s = s.replace(old, new, 1)
 repls = [
 ('''    for (let j = 0; j < N; j++) {

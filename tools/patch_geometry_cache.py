@@ -7,7 +7,7 @@ module = r'''import * as THREE from 'three';
 const DB = 'one-bbm-static-geometry-v1';
 const STORE = 'building-far-tiles';
 const VERSION = 1;
-const MAX_TILE_BYTES = 8 * 1024 * 1024;
+const MAX_TILE_BYTES = 32 * 1024 * 1024;
 const INVISIBLE = new THREE.MeshBasicMaterial({ visible: false });
 
 function openDb() {

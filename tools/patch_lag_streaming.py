@@ -25,7 +25,7 @@ new = r'''  _buildFar(rec) {
     let T;
     try {
       plans = this._plans(rec);
-      T = new TileBuilder(this.lib, \`\${lod ? 'far' : 'near'}_\${rec.key}\`);
+      T = new TileBuilder(this.lib, (lod ? 'far_' : 'near_') + rec.key);
     } catch (err) {
       this._buildFailed(rec, lod ? 'far' : 'near', err);
       return;
@@ -43,7 +43,7 @@ new = r'''  _buildFar(rec) {
         try {
           this.buildPlan(T, plan, lod);
         } catch (err) {
-          console.error(\`[buildings] \${lod ? 'far' : 'near'} lot failed in tile \${rec.key}\`, err);
+          console.error('[buildings] ' + (lod ? 'far' : 'near') + ' lot failed in tile ' + rec.key, err);
         }
         this.schedule(pump, priority);
         return;
@@ -82,7 +82,6 @@ new = r'''  _buildFar(rec) {
     this.schedule(pump, priority);
   }
 '''
-new = new.replace(r'\`', '`').replace(r'\${', '${')
 s = s[:start] + new + s[end:]
 p.write_text(s)
 
@@ -105,7 +104,7 @@ new = '''  _rebuild(lv, cx, cz, hx, hz, schedule) {
         if (!result.done) schedule(pump, priority);
       } catch (err) {
         lv.pending = false;
-        console.error(\`[terrain] clipmap level \${lv.level} rebuild failed\`, err);
+        console.error('[terrain] clipmap level ' + lv.level + ' rebuild failed', err);
       }
     };
     pump();
@@ -113,7 +112,6 @@ new = '''  _rebuild(lv, cx, cz, hx, hz, schedule) {
 
   *_rebuildWork(lv, cx, cz, hx, hz) {'''
 if old not in s: raise SystemExit('terrain method anchor missing')
-new = new.replace(r'\`', '`').replace(r'\${', '${')
 s = s.replace(old, new, 1)
 repls = [
 ('''    for (let j = 0; j < N; j++) {

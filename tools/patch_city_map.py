@@ -314,14 +314,26 @@ mapGate.append(mapGateTitle, mapGateStatus, mapGateButton);
 document.body.appendChild(mapGate);
 window.addEventListener('onebbm:map-status', (event) => {
   const d = event.detail ?? {};
-  if (d.state === 'cached') mapGateStatus.textContent = 'Full city map installed · offline ready';
-  if (d.state === 'missing') mapGateStatus.textContent = 'Map required. Download it once to continue.';
-  if (d.state === 'downloading') {
-    const pct = d.total > 0 ? Math.round(d.loaded / d.total * 100) : 0;
-    mapGateStatus.textContent = 'Downloading and verifying city map… ' + pct + '%';
-    mapGateButton.textContent = 'DOWNLOADING ' + pct + '%';
+  if (d.state === 'cached') {
+    mapGateStatus.textContent = 'Full city map installed · offline ready';
+    mapGateButton.textContent = 'MAP INSTALLED · OFFLINE';
+    mapGateButton.disabled = true;
   }
-  if (d.state === 'ready') mapGateStatus.textContent = 'Full city map verified and saved offline. Starting city…';
+  if (d.state === 'missing') {
+    mapGateStatus.textContent = 'Map required. Download it once to continue.';
+    mapGateButton.disabled = false;
+  }
+  if (d.state === 'downloading') {
+    const progress = d.total > 0
+      ? Math.round(d.loaded / d.total * 100) + '%'
+      : Math.round(d.loaded / 1024) + ' KB';
+    mapGateStatus.textContent = 'Downloading and verifying city map… ' + progress;
+    mapGateButton.textContent = 'DOWNLOADING ' + progress;
+  }
+  if (d.state === 'ready') {
+    mapGateStatus.textContent = 'Full city map verified and saved offline. Starting city…';
+    mapGateButton.disabled = true;
+  }
 });
 mapGateButton.addEventListener('click', async () => {
   mapGateButton.disabled = true;
@@ -330,8 +342,10 @@ mapGateButton.addEventListener('click', async () => {
   try {
     await downloadSteelCityMap({
       onProgress: (loaded, total) => {
-        const pct = total > 0 ? Math.round(loaded / total * 100) : 0;
-        mapGateButton.textContent = 'DOWNLOADING ' + pct + '%';
+        const progress = total > 0
+          ? Math.round(loaded / total * 100) + '%'
+          : Math.round(loaded / 1024) + ' KB';
+        mapGateButton.textContent = 'DOWNLOADING ' + progress;
       },
     });
     mapGateStatus.textContent = 'Map verified and installed. Entering the game…';

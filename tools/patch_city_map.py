@@ -53,7 +53,10 @@ async function writePackage(bytes, manifest) {
   const db = await openDb();
   try {
     const tx = db.transaction(DB_STORE, 'readwrite');
-    await requestValue(tx.objectStore(DB_STORE).put({
+    const store = tx.objectStore(DB_STORE);
+    // Keep exactly one current map package: remove obsolete versions before saving.
+    await requestValue(store.clear());
+    await requestValue(store.put({
       key: DB_KEY,
       bytes: bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength),
       manifest,
@@ -170,13 +173,9 @@ export function loadSteelCityMap() {
     } catch (err) {
       console.warn('[map] cached package rejected; attempting fresh download', err);
     }
-    try {
-      return await downloadSteelCityMap();
-    } catch (err) {
-      report('error', 0, 0, err?.message ?? String(err));
-      console.warn('[map] full city package unavailable; using deterministic generator fallback', err);
-      return null;
-    }
+    report('missing', 0, 0, 'Map not downloaded. Use the manual download button.');
+    console.info('[map] no installed map package; procedural fallback is used until manual download');
+    return null;
   })().finally(() => { loading = null; });
   return loading;
 }
@@ -319,6 +318,11 @@ if "downloadSteelCityMap" not in s:
     setStyle(this.mapStatus, 'letter-spacing', '.08em');
     setStyle(this.mapStatus, 'opacity', '.86');
     this.mapButton = el('button', 'ow-btn', mapRow, 'DOWNLOAD / UPDATE MAP');
+    setStyle(this.mapButton, 'min-height', '30px');
+    setStyle(this.mapButton, 'height', '30px');
+    setStyle(this.mapButton, 'padding', '0 10px');
+    setStyle(this.mapButton, 'font-size', '9px');
+    setStyle(this.mapButton, 'letter-spacing', '.08em');
     this.mapButton.type = 'button';
     this._press(this.mapButton, async () => {
       this.mapButton.disabled = true;
@@ -352,4 +356,13 @@ if "downloadSteelCityMap" not in s:
     s = s.replace(anchor, anchor + "\n    window.removeEventListener('onebbm:map-status', this._mapListener);", 1)
     p.write_text(s)
 
+style_path = root / 'src/ui/style.js'
+style = style_path.read_text()
+compact_css = "/* ONE BBM map download and character selection compact layout */\n.ow-boot-select { max-width: 980px; max-height: calc(100dvh - 16px); overflow-y: auto; overscroll-behavior: contain; padding: 8px; }\n.ow-boot-cards { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 10px; }\n.ow-boot-card .ava { max-height: 96px; }\n.ow-boot-card .body { padding: 8px; }\n.ow-boot-card h3 { font-size: clamp(14px, 2vw, 20px); }\n.ow-boot-card .role, .ow-boot-card .prog { font-size: 8px; letter-spacing: .08em; }\n.ow-boot-card .blurb, .ow-boot-card .stats { display: none !important; }\n.ow-boot-map-row { max-width: 100% !important; margin: 8px auto 2px !important; gap: 8px !important; flex-wrap: wrap; }\n.ow-boot-map-status { font-size: 9px !important; line-height: 1.3; min-width: 0; flex: 1 1 160px; }\n.ow-boot-map-row .ow-btn { min-height: 30px !important; height: 30px; min-width: 0 !important; padding: 0 10px !important; font-size: 9px !important; letter-spacing: .08em !important; flex: 0 0 auto; }\n.ow-boot-hint { margin-top: 6px !important; font-size: 8px !important; letter-spacing: .08em !important; }\n@media (max-height: 540px) and (orientation: landscape) {\n  .ow-boot { padding: 6px 12px !important; align-items: center !important; }\n  .ow-boot-select { max-height: calc(100dvh - 12px); }\n  .ow-boot-select .eyebrow { font-size: 8px; }\n  .ow-boot-select h1 { font-size: clamp(18px, 3.2vh, 26px); margin: 2px 0; }\n  .ow-boot-select .sub { font-size: 8px; }\n  .ow-boot-cards { margin-top: 5px; }\n  .ow-boot-card { display: grid; grid-template-columns: 64px 1fr; }\n  .ow-boot-card .ava { aspect-ratio: auto; height: 64px; max-height: 64px; }\n  .ow-boot-card .body { padding: 5px; }\n  .ow-boot-card h3 { font-size: 13px; }\n  .ow-boot-card .role { font-size: 7px; }\n  .ow-boot-card .prog { margin-top: 4px; padding-top: 4px; font-size: 7px; }\n  .ow-boot-map-row { margin-top: 5px !important; }\n  .ow-boot-erase { margin-top: 4px !important; }\n}\n"
+if 'ONE BBM map download and character selection compact layout' not in style:
+    css_anchor = '\n`;\n\nconst DEFS = `'
+    if css_anchor not in style:
+        raise SystemExit('style CSS template end anchor not found')
+    style = style.replace(css_anchor, '\n' + compact_css + '\n`;\n\nconst DEFS = `', 1)
+    style_path.write_text(style)
 print('Verified full-city map cache, downloader, world restore, and boot-screen map control applied')

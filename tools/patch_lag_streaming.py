@@ -562,4 +562,21 @@ if old not in s:
 s = s.replace(old, new, 1)
 p.write_text(s)
 
+# Make the boot copy match the single playable character without deleting
+# Aidan/Dylan from story and NPC definitions.
+p = root / 'src/ui/boot.js'
+s = p.read_text()
+replacements = [
+    ("'THREE BROTHERS · ONE CITY · FORTY BRIDGES'", "'ONE BROTHER · ONE CITY · FORTY BRIDGES'"),
+    ("'CHOOSE A BROTHER'", "'YOUR CHARACTER'"),
+    ("'WHO ARE YOU TODAY?'", "'CARSON IS READY'"),
+    ("'Each brother keeps his own city, his own story and his own save.'", "'Carson is your playable character in Steel City.'"),
+    ("'You can switch brothers at any time — hold X, or use the phone.'", "'Carson is the only selectable character.'"),
+]
+for old, new in replacements:
+    if old not in s:
+        raise SystemExit('boot copy anchor missing: ' + old)
+    s = s.replace(old, new, 1)
+p.write_text(s)
+
 print('Lag slicing + Carson-only selectable roster applied')

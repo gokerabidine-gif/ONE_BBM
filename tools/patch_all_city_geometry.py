@@ -17,11 +17,9 @@ export async function restoreRoadSector(sx,sz,builder){
  try{
   const rec=await read(key(sx,sz));if(!rec||rec.version!==VERSION)return null;
   const data=await unpack(new Uint8Array(rec.bytes));if(data.sx!==sx||data.sz!==sz||data.version!==VERSION)return null;
-  const mats=new Map();for(const [k,m] of builder._mats??[])mats.set(m.uuid,k);
   const group=new THREE.Group();group.name='sector_'+sx+'_'+sz;group.matrixAutoUpdate=false;
   const loader=new THREE.BufferGeometryLoader();
   for(const item of data.meshes){
-   if(!mats.has(item.materialKey))throw new Error('road material missing '+item.materialKey);
    const mesh=new THREE.Mesh(loader.parse(item.geometry),builder._mat(item.materialKey));
    mesh.name=item.name;mesh.matrix.fromArray(item.matrix);mesh.matrixAutoUpdate=item.matrixAutoUpdate;
    mesh.receiveShadow=item.receiveShadow;mesh.castShadow=item.castShadow;mesh.visible=item.visible;
@@ -47,6 +45,7 @@ export function scheduleRoadSectorSave(sx,sz,group,builder,tris){
 
 props_module = r'''import * as THREE from 'three';
 const DB='one-bbm-prop-tile-cache-v1',STORE='tiles',VERSION=1,LIMIT=10*1024*1024;
+const INVISIBLE=new THREE.MeshBasicMaterial({visible:false});
 function openDb(){return new Promise((resolve,reject)=>{const r=indexedDB.open(DB,1);r.onupgradeneeded=()=>{if(!r.result.objectStoreNames.contains(STORE))r.result.createObjectStore(STORE,{keyPath:'key'});};r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error);});}
 function req(r){return new Promise((resolve,reject)=>{r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error);});}
 async function read(key){const db=await openDb();try{return await req(db.transaction(STORE,'readonly').objectStore(STORE).get(key));}finally{db.close();}}
@@ -88,7 +87,7 @@ export async function restorePropTile(tx,tz,lod,lib){
   const d=await unpack(new Uint8Array(rec.bytes));if(d.tx!==tx||d.tz!==tz||d.lod!==lod||d.version!==VERSION)return null;
   const group=decode(d.root,lib,new THREE.BufferGeometryLoader()),meshes=[];let lodNode=null;
   group.traverse(o=>{if(o.isMesh)meshes.push(o);if(o.isLOD&&!lodNode)lodNode=o;});
-  const colliders=(d.colliders??[]).map(c=>({tag:c.tag,mesh:new THREE.Mesh(new THREE.BufferGeometryLoader().parse(c.geometry),new THREE.MeshBasicMaterial({visible:false}))}));
+  const colliders=(d.colliders??[]).map(c=>({tag:c.tag,mesh:new THREE.Mesh(new THREE.BufferGeometryLoader().parse(c.geometry),INVISIBLE)}));
   for(const c of colliders){c.mesh.name=c.name??('prop_col:'+c.tag);c.mesh.visible=false;c.mesh.matrixAutoUpdate=false;c.mesh.userData.surface=c.tag;}
   return {group,meshes,colliders,lodNode,lamps:d.lamps??[],stats:d.stats??{}};
  }catch(e){console.warn('[props-cache] tile restore failed',tx,tz,e);return null;}
@@ -106,7 +105,7 @@ export function schedulePropTileSave(rec,out,group,lib){
 }
 export function disposePropTile(tile){
  for(const m of tile?.meshes??[]){m.geometry?.dispose();if(m.isInstancedMesh)m.dispose();m.parent?.remove(m);}
- for(const c of tile?.colliders??[]){c.mesh.geometry?.dispose();c.mesh.material?.dispose();}
+ for(const c of tile?.colliders??[]){c.mesh.geometry?.dispose();}
  tile?.group?.parent?.remove(tile.group);
 }
 '''

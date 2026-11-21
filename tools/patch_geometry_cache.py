@@ -187,6 +187,8 @@ export async function restoreNearTile(tx, tz, lib) {
       mesh.name = c.name;
       mesh.visible = false;
       mesh.matrixAutoUpdate = false;
+      mesh.updateMatrix();
+      mesh.updateMatrixWorld(true);
       mesh.userData = c.userData ?? {};
       return mesh;
     });

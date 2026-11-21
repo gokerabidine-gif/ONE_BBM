@@ -189,9 +189,8 @@ s = p.read_text()
 old = '''      if (ms > 50) console.info(`[engine] ${sys.constructor.id} init ${ms.toFixed(0)}ms`);
     }'''
 new = '''      console.info(`[engine] ${sys.constructor.id} init ${ms.toFixed(0)}ms`);
-      // Yield one display frame between systems so the boot/loading UI can paint
-      // and touch input remains responsive while the next system is prepared.
-      await new Promise((resolve) => requestAnimationFrame(resolve));
+      // Diagnostic only: record each initializer's actual synchronous cost.
+      // Do not add artificial waits to startup.
     }'''
 if old not in s: raise SystemExit('engine init timing anchor missing')
 s = s.replace(old, new, 1)
@@ -204,22 +203,25 @@ p = root / 'src/world/index.js'
 s = p.read_text()
 old = '''    this.terrain.bake();
     const tBake = performance.now();'''
-new = '''    this.terrain.bake();
+new = '''    const tBakeStart = performance.now();
+    this.terrain.bake();
     const tBake = performance.now();
-    await new Promise((resolve) => requestAnimationFrame(resolve));'''
+    console.info(`[boot-profile] terrain.bake ${(tBake - tBakeStart).toFixed(1)}ms`);'''
 if old not in s: raise SystemExit('terrain bake anchor missing')
 s = s.replace(old, new, 1)
 old = '''    const city = generateCity(this.terrain, this.rng.fork());
     this.roads = city.graph;'''
-new = '''    const city = generateCity(this.terrain, this.rng.fork());
-    await new Promise((resolve) => requestAnimationFrame(resolve));
+new = '''    const tCityStart = performance.now();
+    const city = generateCity(this.terrain, this.rng.fork());
+    console.info(`[boot-profile] generateCity ${(performance.now() - tCityStart).toFixed(1)}ms`);
     this.roads = city.graph;'''
 if old not in s: raise SystemExit('city generation anchor missing')
 s = s.replace(old, new, 1)
 old = '''    const { lots, byTile } = subdivide(city.blocks, this.terrain, this.rng.fork());
     this.lots = lots;'''
-new = '''    const { lots, byTile } = subdivide(city.blocks, this.terrain, this.rng.fork());
-    await new Promise((resolve) => requestAnimationFrame(resolve));
+new = '''    const tSubdivideStart = performance.now();
+    const { lots, byTile } = subdivide(city.blocks, this.terrain, this.rng.fork());
+    console.info(`[boot-profile] subdivide ${(performance.now() - tSubdivideStart).toFixed(1)}ms`);
     this.lots = lots;'''
 if old not in s: raise SystemExit('lot subdivision anchor missing')
 s = s.replace(old, new, 1)

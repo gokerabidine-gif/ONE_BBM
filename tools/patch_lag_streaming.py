@@ -519,4 +519,26 @@ if old not in s: raise SystemExit('incremental finalizer queue anchor missing')
 s = s.replace(old, new, 1)
 p.write_text(s)
 
+
+# Hold the character-select handoff until the initial city stream is truly idle.
+# world:ready is emitted by WorldSystem only after terrain, road sectors and the
+# shared world/buildings/props queue have drained. __READY__ alone is only a
+# three-frame render handshake and must not expose a half-built spawn area.
+p = root / 'src/ui/boot.js'
+s = p.read_text()
+old = """      if (window.__READY__ === true) this.mark('ready');"""
+new = """      if (window.__READY__ === true) {
+        const world = this.ctx?.peek?.('world');
+        const cityReady =
+          !world ||
+          typeof world.streamingIdle !== 'function' ||
+          world.streamingIdle();
+        if (cityReady) this.mark('ready');
+      }"""
+if old not in s:
+    raise SystemExit('boot ready handshake anchor missing')
+s = s.replace(old, new, 1)
+p.write_text(s)
+
+
 print('Lag slicing + staged startup initialization applied')

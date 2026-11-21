@@ -226,4 +226,52 @@ new = '''    const tSubdivideStart = performance.now();
 if old not in s: raise SystemExit('lot subdivision anchor missing')
 s = s.replace(old, new, 1)
 p.write_text(s)
+
+# Thermal/frame pacing: the game may run on 90/120 Hz Android displays, but
+# rendering at the panel's maximum refresh rate needlessly doubles GPU work.
+# Cap rendered frames at 60 Hz while keeping simulation dt derived from wall time.
+# Capture/lockstep uses Engine.step() directly and is not affected by this loop.
+p = root / 'src/core/engine.js'
+s = p.read_text()
+old = """  _loop(now) {
+    if (!this._running) return;
+    requestAnimationFrame(this._loop);
+    this.step(now);
+  }"""
+new = """  _loop(now) {
+    if (!this._running) return;
+    requestAnimationFrame(this._loop);
+    // A stable 60 Hz render ceiling avoids driving the GPU at 90/120 Hz on
+    // high-refresh Android panels. Physics remains fixed-step and is not tied
+    // to the render cadence; capture harnesses call step() directly.
+    const interval = 1000 / 60;
+    if (this._nextRenderAt == null) this._nextRenderAt = now;
+    if (now + 0.5 < this._nextRenderAt) return;
+    this._nextRenderAt = now + interval;
+    this.step(now);
+  }"""
+if old not in s: raise SystemExit('engine frame-loop anchor missing')
+s = s.replace(old, new, 1)
+p.write_text(s)
+
+# Spread shader warm-up hooks across separate browser turns. The expensive
+# shader work remains intact and pixel output is unchanged; this avoids chaining
+# every subsystem's warm-up into one uninterrupted main-thread task.
+p = root / 'src/core/prewarm.js'
+s = p.read_text()
+old = """      try {
+        const arg = sys === renderSys ? { post: true, shadow: RENDER_SHADOW_WARM } : engine.ctx;
+        hookResults[id] = (await sys.prewarmMaterials(arg)) ?? { ok: true };
+      } catch (err) {"""
+new = """      try {
+        const arg = sys === renderSys ? { post: true, shadow: RENDER_SHADOW_WARM } : engine.ctx;
+        hookResults[id] = (await sys.prewarmMaterials(arg)) ?? { ok: true };
+        // Let Android's compositor and loading UI breathe between subsystem
+        // warm-ups instead of stacking all hook work in one long task.
+        await yieldFrame();
+      } catch (err) {"""
+if old not in s: raise SystemExit('prewarm hook anchor missing')
+s = s.replace(old, new, 1)
+p.write_text(s)
+
 print('Lag slicing + staged startup initialization applied')

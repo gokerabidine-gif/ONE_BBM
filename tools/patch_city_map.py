@@ -284,8 +284,8 @@ main = main_path.read_text()
 import_anchor = "import { prewarm } from './core/prewarm.js';"
 if "downloadSteelCityMap" not in main:
     if import_anchor not in main: raise SystemExit('main map downloader import anchor missing')
-    main = main.replace(import_anchor, import_anchor + "\\nimport { downloadSteelCityMap } from './world/map-cache.js';", 1)
-gate_anchor = "try {\\n  await engine.init();"
+    main = main.replace(import_anchor, import_anchor + "\nimport { downloadSteelCityMap } from './world/map-cache.js';", 1)
+gate_anchor = "try {\n  await engine.init();"
 gate = r'''const mapGate = document.createElement('div');
 mapGate.id = 'onebbm-map-gate';
 Object.assign(mapGate.style, {
@@ -340,9 +340,9 @@ mapGateButton.addEventListener('click', async () => {
 '''
 if gate_anchor not in main: raise SystemExit('engine init gate anchor missing')
 if 'onebbm-map-gate' not in main:
-    main = main.replace(gate_anchor, gate + "\\n" + gate_anchor, 1)
-    main = main.replace("  await engine.init();", "  await engine.init();\\n  document.getElementById('onebbm-map-gate')?.remove();", 1)
-    main = main.replace("  console.error('[boot] init failed', err);", "  console.error('[boot] init failed', err);\\n  const gateStatus = document.getElementById('onebbm-map-gate');\\n  if (gateStatus) gateStatus.textContent = 'Startup failed: ' + (err?.message ?? String(err));", 1)
+    main = main.replace(gate_anchor, gate + "\n" + gate_anchor, 1)
+    main = main.replace("  await engine.init();", "  await engine.init();\n  document.getElementById('onebbm-map-gate')?.remove();", 1)
+    main = main.replace("  console.error('[boot] init failed', err);", "  console.error('[boot] init failed', err);\n  const gateStatus = document.getElementById('onebbm-map-gate');\n  if (gateStatus) gateStatus.textContent = 'Startup failed: ' + (err?.message ?? String(err));", 1)
     main_path.write_text(main)
 
 style_path = root / 'src/ui/style.js'

@@ -312,7 +312,7 @@ mapGateButton.textContent = 'DOWNLOAD FULL CITY MAP';
 mapGateButton.style.cssText = 'min-height:38px;padding:0 16px;border:1px solid #9ca3af;border-radius:4px;background:#161a22;color:#fff;font:inherit;font-weight:700;letter-spacing:.08em';
 mapGate.append(mapGateTitle, mapGateStatus, mapGateButton);
 document.body.appendChild(mapGate);
-window.addEventListener('onebbm:map-status', (event) => {
+const mapStatusListener = (event) => {
   const d = event.detail ?? {};
   if (d.state === 'cached') {
     mapGateStatus.textContent = 'Full city map installed · offline ready';
@@ -334,7 +334,8 @@ window.addEventListener('onebbm:map-status', (event) => {
     mapGateStatus.textContent = 'Full city map verified and saved offline. Starting city…';
     mapGateButton.disabled = true;
   }
-});
+};
+window.addEventListener('onebbm:map-status', mapStatusListener);
 mapGateButton.addEventListener('click', async () => {
   mapGateButton.disabled = true;
   mapGateButton.textContent = 'DOWNLOADING…';
@@ -361,7 +362,7 @@ mapGateButton.addEventListener('click', async () => {
 if gate_anchor not in main: raise SystemExit('engine init gate anchor missing')
 if 'onebbm-map-gate' not in main:
     main = main.replace(gate_anchor, gate + "\n" + gate_anchor, 1)
-    main = main.replace("  await engine.init();", "  await engine.init();\n  document.getElementById('onebbm-map-gate')?.remove();", 1)
+    main = main.replace("  await engine.init();", "  await engine.init();\n  window.removeEventListener('onebbm:map-status', mapStatusListener);\n  document.getElementById('onebbm-map-gate')?.remove();", 1)
     main = main.replace("  console.error('[boot] init failed', err);", "  console.error('[boot] init failed', err);\n  const gateStatus = document.getElementById('onebbm-map-gate');\n  if (gateStatus) gateStatus.textContent = 'Startup failed: ' + (err?.message ?? String(err));", 1)
     main_path.write_text(main)
 

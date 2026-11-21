@@ -309,8 +309,7 @@ if "downloadSteelCityMap" not in s:
     window.addEventListener('onebbm:map-status', this._mapListener);'''
     s = s.replace(anchor, listener, 1)
 
-    anchor = """    el('div', 'ow-boot-hint', w,
-      'Carson is the only selectable character.');"""
+    anchor = "    el('div', 'ow-boot-hint', w,"
     map_ui = r'''    const mapRow = el('div', 'ow-boot-map-row', w);
     setStyle(mapRow, 'display', 'flex');
     setStyle(mapRow, 'align-items', 'center');
@@ -348,7 +347,9 @@ if "downloadSteelCityMap" not in s:
     el('div', 'ow-boot-hint', w,
       'Carson is the only selectable character. The full city map is stored for offline play.');'''
     if anchor not in s: raise SystemExit('boot map UI insertion anchor missing')
-    s = s.replace(anchor, map_ui, 1)
+    map_start = s.index(anchor)
+    map_end = s.index(');', map_start) + 2
+    s = s[:map_start] + map_ui + s[map_end:]
 
     anchor = "    this._offWorld?.();"
     if anchor not in s: raise SystemExit('boot map listener cleanup anchor missing')

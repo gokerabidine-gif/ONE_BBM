@@ -44,7 +44,7 @@ export function scheduleRoadSectorSave(sx,sz,group,builder,tris){
 '''
 
 props_module = r'''import * as THREE from 'three';
-const DB='one-bbm-prop-tile-cache-v1',STORE='tiles',VERSION=1,LIMIT=10*1024*1024;
+const DB='one-bbm-prop-tile-cache-v1',STORE='tiles',VERSION=1,LIMIT=24*1024*1024;
 const INVISIBLE=new THREE.MeshBasicMaterial({visible:false});
 function openDb(){return new Promise((resolve,reject)=>{const r=indexedDB.open(DB,1);r.onupgradeneeded=()=>{if(!r.result.objectStoreNames.contains(STORE))r.result.createObjectStore(STORE,{keyPath:'key'});};r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error);});}
 function req(r){return new Promise((resolve,reject)=>{r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error);});}

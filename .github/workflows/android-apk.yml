@@ -248,6 +248,12 @@ jobs:
           set -euo pipefail
           python3 tools/patch_geometry_cache.py "$PROJECT_DIR"
 
+      - name: Cache road sectors and complete street-prop tiles
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/patch_all_city_geometry.py "$PROJECT_DIR"
+
       - name: Install dependencies
         working-directory: ${{ env.PROJECT_DIR }}
         run: npm install --no-audit --no-fund

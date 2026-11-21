@@ -54,14 +54,20 @@ async function writePackage(bytes, manifest) {
   try {
     const tx = db.transaction(DB_STORE, 'readwrite');
     const store = tx.objectStore(DB_STORE);
-    // Keep exactly one current map package: remove obsolete versions before saving.
-    await requestValue(store.clear());
-    await requestValue(store.put({
+    // Atomic replacement: no duplicate map copies and no transaction inactivity
+    // risk from awaiting separate IndexedDB requests.
+    store.clear();
+    store.put({
       key: DB_KEY,
       bytes: bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength),
       manifest,
       savedAt: Date.now(),
-    }));
+    });
+    await new Promise((resolve, reject) => {
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error ?? new Error('Map package save failed'));
+      tx.onabort = () => reject(tx.error ?? new Error('Map package save aborted'));
+    });
   } finally {
     db.close();
   }

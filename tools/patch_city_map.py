@@ -324,7 +324,7 @@ if "downloadSteelCityMap" not in s:
     setStyle(this.mapStatus, 'opacity', '.86');
     this.mapButton = el('button', 'ow-btn', mapRow, 'DOWNLOAD / UPDATE MAP');
     this.mapButton.type = 'button';
-    this.mapButton.addEventListener('click', async () => {
+    this._press(this.mapButton, async () => {
       this.mapButton.disabled = true;
       this.mapButton.textContent = 'DOWNLOADING…';
       this.mapStatus.textContent = 'Downloading and verifying the complete city package…';

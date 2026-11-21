@@ -586,7 +586,7 @@ p.write_text(s)
 p = root / 'src/world/index.js'
 s = p.read_text()
 old = "import { Router } from './route.js';"
-new = "import { Router } from './route.js';\\nimport { Rng } from '../core/rng.js';"
+new = "import { Router } from './route.js';" + chr(10) + "import { Rng } from '../core/rng.js';"
 if old not in s:
     raise SystemExit('world RNG import anchor missing')
 s = s.replace(old, new, 1)

@@ -171,6 +171,51 @@ export function scheduleFarTileSave(rec, built, lib) {
   if (typeof idle === 'function') idle(() => { void save(); }, { timeout: 2500 });
   else setTimeout(() => { void save(); }, 1200);
 }
+
+const nearKey = (tx, tz) => 'v' + VERSION + ':near:' + tx + ',' + tz;
+export async function restoreNearTile(tx, tz, lib) {
+  try {
+    const record = await getRecord(nearKey(tx, tz));
+    if (!record?.bytes || record.version !== VERSION) return null;
+    const json = JSON.parse(await decompress(new Uint8Array(record.bytes)));
+    if (json.version !== VERSION || json.tx !== tx || json.tz !== tz || json.kind !== 'near') return null;
+    const loader = new THREE.BufferGeometryLoader();
+    const group = decodeNode(json.root, lib, loader);
+    const colMeshes = (json.colliders ?? []).map((c) => {
+      const mesh = new THREE.Mesh(loader.parse(c.geometry), new THREE.MeshBasicMaterial({ visible: false }));
+      mesh.name = c.name;
+      mesh.visible = false;
+      mesh.matrixAutoUpdate = false;
+      mesh.userData = c.userData ?? {};
+      return mesh;
+    });
+    let lod = null;
+    group.traverse((o) => { if (o.isLOD && !lod) lod = o; });
+    const sphere = json.sphere ? new THREE.Sphere(new THREE.Vector3(...json.sphere.center), json.sphere.radius) : null;
+    return { group, handles: [], colMeshes, lod, sphere, stats: json.stats ?? {} };
+  } catch (err) {
+    console.warn('[geometry-cache] cached near tile rejected', tx, tz, err);
+    return null;
+  }
+}
+export function scheduleNearTileSave(rec, built, lib) {
+  if (!rec || !built?.group || !globalThis.indexedDB) return;
+  const save = async () => {
+    try {
+      const root = encodeNode(built.group, materialIndex(lib), prototypeIndex(lib));
+      const colliders = (built.colMeshes ?? []).map((mesh) => ({ name: mesh.name, geometry: mesh.geometry.toJSON(), userData: mesh.userData ?? {} }));
+      const sphere = built.sphere ? { center: built.sphere.center.toArray(), radius: built.sphere.radius } : null;
+      const bytes = await compress(JSON.stringify({ version: VERSION, kind: 'near', tx: rec.tx, tz: rec.tz, root, colliders, sphere, stats: built.stats }));
+      if (bytes.byteLength > MAX_TILE_BYTES) return;
+      await putRecord({ key: nearKey(rec.tx, rec.tz), version: VERSION, bytes: bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength), savedAt: Date.now() });
+    } catch (err) {
+      console.warn('[geometry-cache] near tile was not cached', rec.key, err);
+    }
+  };
+  const idle = globalThis.requestIdleCallback;
+  if (typeof idle === 'function') idle(() => { void save(); }, { timeout: 3000 });
+  else setTimeout(() => { void save(); }, 1600);
+}
 '''
 (root / 'src/buildings/geometry-cache.js').write_text(module)
 p = root / 'src/buildings/index.js'
@@ -178,7 +223,7 @@ s = p.read_text()
 anchor = "import { farFacadeDetailDistance } from './quality.js';"
 if 'restoreFarTile' not in s:
     if anchor not in s: raise SystemExit('building import anchor missing')
-    s = s.replace(anchor, anchor + "\nimport { restoreFarTile, scheduleFarTileSave } from './geometry-cache.js';", 1)
+    s = s.replace(anchor, anchor + "\nimport { restoreFarTile, scheduleFarTileSave, restoreNearTile, scheduleNearTileSave } from './geometry-cache.js';", 1)
 old = """  _buildFar(rec) {
     if (!this._live(rec)) return;
     this._buildTileInSlices(rec, 1);
@@ -204,10 +249,50 @@ new = """  async _buildFar(rec) {
 if 'async _buildFar(rec)' not in s:
     if old not in s: raise SystemExit('_buildFar insertion anchor missing')
     s = s.replace(old, new, 1)
+oldNear = """  _buildNear(rec) {
+    if (!this._live(rec)) {
+      rec.nearBuilding = false;
+      return;
+    }
+    this._buildTileInSlices(rec, 0);
+  }"""
+newNear = """  async _buildNear(rec) {
+    if (!this._live(rec)) {
+      rec.nearBuilding = false;
+      return;
+    }
+    const cached = await restoreNearTile(rec.tx, rec.tz, this.lib);
+    if (!this._live(rec)) {
+      if (cached) releaseTile(cached, null);
+      rec.nearBuilding = false;
+      return;
+    }
+    if (cached) {
+      for (const mesh of cached.colMeshes) {
+        const h = this.physics?.addStatic?.(mesh, mesh.userData.surface);
+        if (h >= 0) cached.handles.push(h);
+      }
+      rec.near = cached;
+      rec.nearBuilding = false;
+      rec.group.add(cached.group);
+      this.render?.patchMaterials?.(cached.group);
+      this._colDirty = true;
+      this._accum(cached.stats);
+      this._refreshCull(rec, cached);
+      setVisible(rec.far, false);
+      return;
+    }
+    rec.nearBuilding = false;
+    this._buildTileInSlices(rec, 0);
+  }"""
+if 'async _buildNear(rec)' not in s:
+    if oldNear not in s: raise SystemExit('near builder patch anchor missing')
+    s = s.replace(oldNear, newNear, 1)
 old2 = """          this._accum(built.stats);
           if (!lod) setVisible(rec.far, false);"""
 new2 = """          this._accum(built.stats);
           if (lod) scheduleFarTileSave(rec, built, this.lib);
+          else scheduleNearTileSave(rec, built, this.lib);
           if (!lod) setVisible(rec.far, false);"""
 if 'if (lod) scheduleFarTileSave(rec, built, this.lib);' not in s:
     if old2 not in s: raise SystemExit('sliced tile publish cache anchor missing')
@@ -223,5 +308,16 @@ new3 = """    this.schedule(() => {
 if 'Promise.resolve(this._buildFar(rec))' not in s:
     if old3 not in s: raise SystemExit('far tile scheduling anchor missing')
     s = s.replace(old3, new3, 1)
+oldNearSchedule = "        this.schedule(() => this._buildNear(rec), 4);"
+newNearSchedule = """        this.schedule(() => {
+          const world = this.world;
+          if (world) world._sectorJobs++;
+          Promise.resolve(this._buildNear(rec))
+            .catch((err) => this._buildFailed(rec, 'near-cache', err))
+            .finally(() => { if (world) world._sectorJobs = Math.max(0, world._sectorJobs - 1); });
+        }, 4);"""
+if 'Promise.resolve(this._buildNear(rec))' not in s:
+    if oldNearSchedule not in s: raise SystemExit('near schedule patch anchor missing')
+    s = s.replace(oldNearSchedule, newNearSchedule, 1)
 p.write_text(s)
 print('Added versioned IndexedDB cache for far building geometry sectors')

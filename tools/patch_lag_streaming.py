@@ -291,11 +291,6 @@ new = '''        if (p[i + 2] > z1) z1 = p[i + 2];
       yield;
     }
     if (!Number.isFinite(x0)) return;'''
-new = '''        if (p[i + 2] > z1) z1 = p[i + 2];
-      }
-      yield;
-    }
-    // The grid is bounded'''
 if old not in s: raise SystemExit('AO bounds yield anchor missing')
 s = s.replace(old, new, 1)
 old = '''        if (p[i + 1] < raw[c]) raw[c] = p[i + 1];

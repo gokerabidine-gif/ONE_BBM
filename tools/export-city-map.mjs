@@ -80,7 +80,7 @@ const compressed = gzipSync(json, { level: 9, mtime: 0 });
 const sha256 = createHash('sha256').update(compressed).digest('hex');
 const outDir = join(project, 'map-package');
 await mkdir(outDir, { recursive: true });
-await writeFile(join(outDir, 'steel-city-v2.json.gz'), compressed);
+await writeFile(join(outDir, 'steel-city-v2.pack'), compressed);
 await writeFile(join(outDir, 'steel-city-v2.manifest.json'), JSON.stringify({
   schema: payload.schema,
   version: MAP_VERSION,

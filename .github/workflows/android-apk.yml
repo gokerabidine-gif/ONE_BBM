@@ -388,7 +388,6 @@ jobs:
           rm -rf "$PUBLISH_DIR"
           git worktree add --detach "$PUBLISH_DIR" "$GITHUB_SHA"
           git -C "$PUBLISH_DIR" switch --orphan map-assets-publish
-          git -C "$PUBLISH_DIR" rm -rf . >/dev/null
           mkdir -p "$PUBLISH_DIR/maps"
           cp "$PROJECT_DIR/map-package/steel-city-v2.pack" "$PUBLISH_DIR/maps/"
           cp "$PROJECT_DIR/map-package/steel-city-v2.manifest.json" "$PUBLISH_DIR/maps/"

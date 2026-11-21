@@ -305,9 +305,9 @@ if "downloadSteelCityMap" not in s:
     window.addEventListener('onebbm:map-status', this._mapListener);'''
     s = s.replace(anchor, listener, 1)
 
-    anchor = "    el('div', 'pct', row, '0%');
-    const mapRow = el('div', 'ow-boot-map-row', this.loadRoot);"
-    map_ui = r'''    const mapRow = el('div', 'ow-boot-map-row', this.loadRoot);
+    anchor = "    el('div', 'pct', row, '0%');"
+    map_ui = r'''    el('div', 'pct', row, '0%');
+    const mapRow = el('div', 'ow-boot-map-row', this.loadRoot);
     setStyle(mapRow, 'display', 'flex');
     setStyle(mapRow, 'align-items', 'center');
     setStyle(mapRow, 'justify-content', 'space-between');

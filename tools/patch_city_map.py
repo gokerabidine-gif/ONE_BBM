@@ -367,4 +367,34 @@ if 'ONE BBM map download and character selection compact layout' not in style:
         raise SystemExit('style CSS template end anchor not found')
     style = style.replace(css_anchor, '\n' + compact_css + '\n`;\n\nconst DEFS = `', 1)
     style_path.write_text(style)
+# Keep the world visually and computationally dormant behind the boot UI.
+world_path = root / 'src/world/index.js'
+world = world_path.read_text()
+if 'ONE BBM boot-time world hold' not in world:
+    root_anchor = "    this.root = new THREE.Group();\n    this.root.name = 'world';"
+    if root_anchor not in world: raise SystemExit('world root anchor missing')
+    world = world.replace(root_anchor, root_anchor + "\n    // ONE BBM boot-time world hold: hide city and pause streaming until START.\n    this._bootActive = !(window.__BOOT__?.active);\n    this.root.visible = this._bootActive;\n    if (!this._bootActive) {\n      this.ctx.events.on('ui:boot', (event) => {\n        if (event?.phase !== 'play') return;\n        this._bootActive = true;\n        this.root.visible = true;\n      });\n    }", 1)
+    update_anchor = "  update(dt, ctx) {\n    const cam = ctx.camera;"
+    if update_anchor not in world: raise SystemExit('world update anchor missing')
+    world = world.replace(update_anchor, "  update(dt, ctx) {\n    // No city rendering/streaming work while character selection is on screen.\n    if (!this._bootActive) return;\n    const cam = ctx.camera;", 1)
+    world_path.write_text(world)
+
+# Center and compact the map-download / character-selection controls.
+style_path = root / 'src/ui/style.js'
+style = style_path.read_text()
+center_css = "/* ONE BBM centered boot controls and boot-time city hold */\n.ow-boot-select { width: min(900px, 100%); max-height: calc(100dvh - 14px); overflow-y: auto; text-align: center; padding: 8px; margin-inline: auto; }\n.ow-boot-cards { max-width: 860px; margin: 8px auto; gap: 8px; }\n.ow-boot-card .ava { max-height: 86px; }\n.ow-boot-card .body { padding: 6px; }\n.ow-boot-card h3 { font-size: clamp(13px, 1.8vw, 18px); }\n.ow-boot-card .blurb, .ow-boot-card .stats { display: none !important; }\n.ow-boot-map-row { display: flex !important; flex-direction: column !important; align-items: center !important; justify-content: center !important; width: fit-content !important; max-width: 100% !important; margin: 10px auto 4px !important; gap: 5px !important; }\n.ow-boot-map-status { text-align: center; }\n.ow-boot-map-row .ow-btn { margin-inline: auto; }\n.ow-boot-hint { text-align: center; margin: 5px auto !important; }\n.ow-boot-erase { margin: 5px auto !important; }\n.ow-boot-intro .card { margin-inline: auto; }\n.ow-boot-btns { justify-content: center !important; }\n@media (max-height: 540px) and (orientation: landscape) {\n .ow-boot { padding: 4px 8px !important; }\n .ow-boot-select { max-height: calc(100dvh - 8px); }\n .ow-boot-select h1 { font-size: clamp(16px, 3vh, 23px); margin: 2px 0; }\n .ow-boot-cards { margin: 5px auto; }\n .ow-boot-card { display: grid; grid-template-columns: 56px 1fr; }\n .ow-boot-card .ava { height: 56px; max-height: 56px; aspect-ratio: auto; }\n .ow-boot-card .body { padding: 4px; }\n .ow-boot-card h3 { font-size: 12px; }\n .ow-boot-map-row { margin: 4px auto !important; }\n}\n"
+if 'ONE BBM centered boot controls and boot-time city hold' not in style:
+    css_anchor = '\n`;\n\nconst DEFS = `'
+    if css_anchor not in style: raise SystemExit('center CSS anchor missing')
+    style = style.replace(css_anchor, '\n' + center_css + '\n`;\n\nconst DEFS = `', 1)
+    style_path.write_text(style)
+
+# On Android, avoid the expensive shader prewarm before the user reaches gameplay.
+main_path = root / 'src/main.js'
+main = main_path.read_text()
+prewarm_anchor = "const warmup = params.get('prewarm') === '0' ? { ok: false, reason: 'disabled by ?prewarm=0' } : await prewarm(engine);"
+if prewarm_anchor in main and 'ONE BBM Android prewarm bypass' not in main:
+    replacement = "const isAndroidWebView = /Android/i.test(navigator.userAgent);\n// ONE BBM Android prewarm bypass: avoid prolonged startup GPU work on phones.\nconst warmup = (params.get('prewarm') === '0' || isAndroidWebView)\n  ? { ok: false, reason: isAndroidWebView ? 'deferred for Android startup thermal load' : 'disabled by ?prewarm=0' }\n  : await prewarm(engine);"
+    main = main.replace(prewarm_anchor, replacement, 1)
+    main_path.write_text(main)
 print('Verified full-city map cache, downloader, world restore, and boot-screen map control applied')

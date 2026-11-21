@@ -552,4 +552,14 @@ if old not in s:
 s = s.replace(old, new, 1)
 p.write_text(s)
 
+# Keep the in-game phone contact selector aligned with the Carson-only roster.
+p = root / 'src/ui/phone.js'
+s = p.read_text()
+old = "this.character = 'aidan';"
+new = "this.character = 'carson';"
+if old not in s:
+    raise SystemExit('phone default character anchor missing')
+s = s.replace(old, new, 1)
+p.write_text(s)
+
 print('Lag slicing + Carson-only selectable roster applied')

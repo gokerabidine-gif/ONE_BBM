@@ -6,7 +6,7 @@ on:
     branches: [main, master]
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build-apk:
@@ -236,6 +236,12 @@ jobs:
           set -euo pipefail
           python3 tools/patch_lag_streaming.py "$PROJECT_DIR"
 
+      - name: Add verified full-city download and offline cache
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/patch_city_map.py "$PROJECT_DIR"
+
       - name: Install dependencies
         working-directory: ${{ env.PROJECT_DIR }}
         run: npm install --no-audit --no-fund
@@ -246,16 +252,16 @@ jobs:
         run: |
           set -euo pipefail
           node "$GITHUB_WORKSPACE/tools/export-city-map.mjs" "."
-          test -s map-package/steel-city-v1.json.gz
-          test -s map-package/steel-city-v1.manifest.json
+          test -s map-package/steel-city-v2.json.gz
+          test -s map-package/steel-city-v2.manifest.json
 
       - name: Upload Steel City map package
         uses: actions/upload-artifact@v4
         with:
-          name: ONE-BBM-steel-city-map-v1
+          name: ONE-BBM-steel-city-map-v2
           path: |
-            ${{ env.PROJECT_DIR }}/map-package/steel-city-v1.json.gz
-            ${{ env.PROJECT_DIR }}/map-package/steel-city-v1.manifest.json
+            ${{ env.PROJECT_DIR }}/map-package/steel-city-v2.json.gz
+            ${{ env.PROJECT_DIR }}/map-package/steel-city-v2.manifest.json
           if-no-files-found: error
           retention-days: 30
 

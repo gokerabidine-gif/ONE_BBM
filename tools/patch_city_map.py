@@ -150,11 +150,7 @@ export async function downloadSteelCityMap({ onProgress } = {}) {
   }
   const bytes = await fetchBytes(PACKAGE_URL, onProgress);
   const payload = await unpack(bytes, manifest);
-  try {
-    await writePackage(bytes, manifest);
-  } catch (err) {
-    console.warn('[map] downloaded but could not persist offline package', err);
-  }
+  await writePackage(bytes, manifest);
   report('ready', bytes.byteLength, manifest.bytes);
   return payload;
 }

@@ -187,7 +187,10 @@ anchor="""    if (rec.lod >= 2) return; // beyond the prop horizon; nothing to b
     this._queueBuild(rec);
 """
 replacement="""    if (rec.lod >= 2) return; // beyond the prop horizon; nothing to build
-    this._restoreOrBuild(rec);
+    this._pending++;
+    this._restoreOrBuild(rec)
+      .catch((err) => { console.warn('[props-cache] restore path failed; rebuilding', rec.key, err); if (rec.alive) this._queueBuild(rec); })
+      .finally(() => { this._pending = Math.max(0, this._pending - 1); });
 """
 if "_restoreOrBuild(rec)" not in s:
  if anchor not in s: raise SystemExit('props tile load anchor missing')

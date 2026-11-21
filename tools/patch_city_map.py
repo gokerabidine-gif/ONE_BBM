@@ -373,11 +373,14 @@ world = world_path.read_text()
 if 'ONE BBM boot-time world hold' not in world:
     root_anchor = "    this.root = new THREE.Group();\n    this.root.name = 'world';"
     if root_anchor not in world: raise SystemExit('world root anchor missing')
-    world = world.replace(root_anchor, root_anchor + "\n    // ONE BBM boot-time world hold: hide city and pause streaming until START.\n    this._bootActive = !(window.__BOOT__?.active);\n    this.root.visible = this._bootActive;\n    if (!this._bootActive) {\n      this.ctx.events.on('ui:boot', (event) => {\n        if (event?.phase !== 'play') return;\n        this._bootActive = true;\n        this.root.visible = true;\n        // Far-city sectors are deferred until the player presses START.\n    if (this._bootActive) this._queueFarSectors();\n      });\n    }", 1)
+    world = world.replace(root_anchor, root_anchor + "\n    // ONE BBM boot-time world hold: hide city and pause streaming until START.\n    this._bootActive = !(window.__BOOT__?.active);\n    this.root.visible = this._bootActive;\n    if (!this._bootActive) {\n      this.ctx.events.on('ui:boot', (event) => {\n        if (event?.phase !== 'play') return;\n        this._bootActive = true;\n        this.root.visible = true;\n        this._queueFarSectors();\n      });\n    }", 1)
     update_anchor = "  update(dt, ctx) {\n    const cam = ctx.camera;"
     if update_anchor not in world: raise SystemExit('world update anchor missing')
     world = world.replace(update_anchor, "  update(dt, ctx) {\n    // No city rendering/streaming work while character selection is on screen.\n    if (!this._bootActive) return;\n    const cam = ctx.camera;", 1)
-    world_path.write_text(world)
+    far_anchor = "    /* ---- 6. the far road network, so the city reads to the horizon ----- */\\n    this._queueFarSectors();"
+if far_anchor not in world: raise SystemExit('far-sector init anchor missing')
+world = world.replace(far_anchor, "    /* ---- 6. far sectors deferred while boot selection is active ----- */\\n    if (this._bootActive) this._queueFarSectors();", 1)
+world_path.write_text(world)
 
 # Center and compact the map-download / character-selection controls.
 style_path = root / 'src/ui/style.js'

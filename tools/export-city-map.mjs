@@ -15,7 +15,7 @@ const [{ Terrain }, { generateCity }, { subdivide, resetLotIds }, { Rng }, { LAN
   load('src/world/plan.js'),
 ]);
 
-const MAP_VERSION = 1;
+const MAP_VERSION = 2;
 const MAP_SEED = 0x5eed1234;
 const terrain = new Terrain({ cell: 8, extent: 1792 });
 terrain.bake();
@@ -80,8 +80,8 @@ const compressed = gzipSync(json, { level: 9, mtime: 0 });
 const sha256 = createHash('sha256').update(compressed).digest('hex');
 const outDir = join(project, 'map-package');
 await mkdir(outDir, { recursive: true });
-await writeFile(join(outDir, 'steel-city-v1.json.gz'), compressed);
-await writeFile(join(outDir, 'steel-city-v1.manifest.json'), JSON.stringify({
+await writeFile(join(outDir, 'steel-city-v2.json.gz'), compressed);
+await writeFile(join(outDir, 'steel-city-v2.manifest.json'), JSON.stringify({
   schema: payload.schema,
   version: MAP_VERSION,
   seed: MAP_SEED,

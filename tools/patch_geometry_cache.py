@@ -181,9 +181,26 @@ if 'restoreFarTile' not in s:
     s = s.replace(anchor, anchor + "\nimport { restoreFarTile, scheduleFarTileSave } from './geometry-cache.js';", 1)
 old = """  _buildFar(rec) {
     if (!this._live(rec)) return;
-    let built = null;
-    try {
-      const plans = this._plans(rec);"""
+    this._buildTileInSlices(rec, 1);
+  }"""
+new = """  async _buildFar(rec) {
+    if (!this._live(rec)) return;
+    let cached = await restoreFarTile(rec.tx, rec.tz, this.lib);
+    if (!this._live(rec)) {
+      if (cached) releaseTile(cached, null);
+      return;
+    }
+    if (cached) {
+      setVisible(cached, true);
+      rec.far = cached;
+      rec.group.add(cached.group);
+      this.render?.patchMaterials?.(cached.group);
+      this._refreshCull(rec, cached);
+      this._accum(cached.stats);
+      return;
+    }
+    this._buildTileInSlices(rec, 1);
+  }"""
 new = """  async _buildFar(rec) {
     if (!this._live(rec)) return;
     let cached = await restoreFarTile(rec.tx, rec.tz, this.lib);
@@ -206,25 +223,13 @@ new = """  async _buildFar(rec) {
 if 'async _buildFar(rec)' not in s:
     if old not in s: raise SystemExit('_buildFar insertion anchor missing')
     s = s.replace(old, new, 1)
-old2 = """    rec.far = built;
-    rec.group.add(built.group);
-    this.render?.patchMaterials?.(built.group);
-    this._refreshCull(rec, built);
-    this._accum(built.stats);
-  }
-
-  _buildNear(rec)"""
-new2 = """    rec.far = built;
-    rec.group.add(built.group);
-    this.render?.patchMaterials?.(built.group);
-    this._refreshCull(rec, built);
-    this._accum(built.stats);
-    scheduleFarTileSave(rec, built, this.lib);
-  }
-
-  _buildNear(rec)"""
-if 'scheduleFarTileSave(rec, built, this.lib)' not in s:
-    if old2 not in s: raise SystemExit('_buildFar save anchor missing')
+old2 = """          this._accum(built.stats);
+          if (!lod) setVisible(rec.far, false);"""
+new2 = """          this._accum(built.stats);
+          if (lod) scheduleFarTileSave(rec, built, this.lib);
+          if (!lod) setVisible(rec.far, false);"""
+if 'if (lod) scheduleFarTileSave(rec, built, this.lib);' not in s:
+    if old2 not in s: raise SystemExit('sliced tile publish cache anchor missing')
     s = s.replace(old2, new2, 1)
 old3 = "    this.schedule(() => this._buildFar(rec), 1);"
 new3 = """    this.schedule(() => {

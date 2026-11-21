@@ -274,4 +274,249 @@ if old not in s: raise SystemExit('prewarm hook anchor missing')
 s = s.replace(old, new, 1)
 p.write_text(s)
 
+
+# Incremental TileBuilder finalization. The original synchronous tail scans all
+# emitted vertices for ground AO and creates merged geometry in one task.
+p = root / 'src/buildings/tile.js'
+s = p.read_text()
+old = '  _bakeGroundAo() {'
+if old not in s: raise SystemExit('ground AO method anchor missing')
+s = s.replace(old, '  *_bakeGroundAoWork() {', 1)
+old = '''        if (p[i + 2] > z1) z1 = p[i + 2];
+      }
+    }
+    // The grid is bounded'''
+new = '''        if (p[i + 2] > z1) z1 = p[i + 2];
+      }
+      yield;
+    }
+    // The grid is bounded'''
+if old not in s: raise SystemExit('AO bounds yield anchor missing')
+s = s.replace(old, new, 1)
+old = '''        if (p[i + 1] < raw[c]) raw[c] = p[i + 1];
+      }
+    }
+    // 3x3 minimum.'''
+new = '''        if (p[i + 1] < raw[c]) raw[c] = p[i + 1];
+      }
+      yield;
+    }
+    // 3x3 minimum.'''
+if old not in s: raise SystemExit('AO ground sampling yield anchor missing')
+s = s.replace(old, new, 1)
+old = '''        gnd[k * nx + i] = m;
+      }
+    }
+
+    let touched = 0;'''
+new = '''        gnd[k * nx + i] = m;
+      }
+      yield;
+    }
+
+    let touched = 0;'''
+if old not in s: raise SystemExit('AO dilation yield anchor missing')
+s = s.replace(old, new, 1)
+old = '''          touched++;
+        }
+      }
+    }
+
+    /**
+     * Instanced placements'''
+new = '''          touched++;
+        }
+      }
+      yield;
+    }
+
+    /**
+     * Instanced placements'''
+if old not in s: raise SystemExit('AO vertex bake yield anchor missing')
+s = s.replace(old, new, 1)
+old = '''          e.c[i] = mk;
+          touched++;
+        }
+      }
+    }
+    this.stats.groundAo = touched;
+  }
+
+  // ----------------------------------------------------------- finalize ---'''
+new = '''          e.c[i] = mk;
+          touched++;
+        }
+      }
+      yield;
+    }
+    this.stats.groundAo = touched;
+  }
+
+  _bakeGroundAo() {
+    const work = this._bakeGroundAoWork();
+    while (!work.next().done) {}
+  }
+
+  // ----------------------------------------------------------- finalize ---'''
+if old not in s: raise SystemExit('AO generator end anchor missing')
+s = s.replace(old, new, 1)
+old = '  build(physics, opts = {}) {'
+new = '''  build(physics, opts = {}) {
+    const work = this.buildWork(physics, opts);
+    let result;
+    do { result = work.next(); } while (!result.done);
+    return result.value;
+  }
+
+  *buildWork(physics, opts = {}) {'''
+if old not in s: raise SystemExit('TileBuilder build anchor missing')
+s = s.replace(old, new, 1)
+old = '    this._bakeGroundAo();'
+new = '    yield* this._bakeGroundAoWork();'
+if old not in s: raise SystemExit('TileBuilder AO call anchor missing')
+s = s.replace(old, new, 1)
+old = '''      for (let i = 0; i < e.m.length; i++) {
+        const o = e.c[i] ? { masks: e.c[i] } : {};
+        if (noShadow) o.noShadow = true;
+        this.add(p.key, p.geo, e.m[i], o);
+      }
+      e.m.length = 0;'''
+new = '''      for (let i = 0; i < e.m.length; i++) {
+        const o = e.c[i] ? { masks: e.c[i] } : {};
+        if (noShadow) o.noShadow = true;
+        this.add(p.key, p.geo, e.m[i], o);
+        if ((i & 255) === 255) yield;
+      }
+      e.m.length = 0;
+      yield;'''
+if old not in s: raise SystemExit('instance fold yield anchor missing')
+s = s.replace(old, new, 1)
+old = '''    const emit = (bucket, host, noShadow = false) => {
+      for (const [key, acc] of bucket) {'''
+new = '''    const emit = function* (bucket, host, noShadow = false) {
+      for (const [key, acc] of bucket) {'''
+if old not in s: raise SystemExit('emit generator anchor missing')
+s = s.replace(old, new, 1)
+old = '''        this.stats.draws++;
+      }
+    };
+    /**
+     * A SECOND BATCH'''
+new = '''        this.stats.draws++;
+        yield;
+      }
+    }.bind(this);
+    /**
+     * A SECOND BATCH'''
+if old not in s: raise SystemExit('emit generator end anchor missing')
+s = s.replace(old, new, 1)
+old = '''    emit(this._static, group);
+    emit(this._detail, detailHost, true);'''
+new = '''    yield* emit(this._static, group);
+    yield* emit(this._detail, detailHost, true);'''
+if old not in s: raise SystemExit('emit generator call anchor missing')
+s = s.replace(old, new, 1)
+old = '    emit(this._noCast, group, true);'
+new = '    yield* emit(this._noCast, group, true);'
+if old not in s: raise SystemExit('noCast emit generator anchor missing')
+s = s.replace(old, new, 1)
+old = '''      this.stats.instTris += p.tris * e.m.length;
+    }
+
+    // --- collision ---'''
+new = '''      this.stats.instTris += p.tris * e.m.length;
+      yield;
+    }
+
+    // --- collision ---'''
+if old not in s: raise SystemExit('instanced output yield anchor missing')
+s = s.replace(old, new, 1)
+old = '''          if (h >= 0) handles.push(h);
+        }
+      }
+    }
+
+    // The sign mount contract:'''
+new = '''          if (h >= 0) handles.push(h);
+        }
+        yield;
+      }
+    }
+
+    // The sign mount contract:'''
+if old not in s: raise SystemExit('collision yield anchor missing')
+s = s.replace(old, new, 1)
+p.write_text(s)
+
+# The sliced city queue now advances finalization one generator slice at a time.
+p = root / 'src/buildings/index.js'
+s = p.read_text()
+old = '''      let built = null;
+      try {
+        built = T.build(lod ? null : (this._live(rec) ? this.physics : null), lod ? {
+          lodDistance: this.farDetailDist,
+          lodCenter: [rec.cx, this._groundAt(rec.cx, rec.cz) + 10, rec.cz],
+        } : {});
+      } catch (err) {
+        this._buildFailed(rec, lod ? 'far' : 'near', err);
+        return;
+      }
+
+      if (!this._live(rec)) {'''
+new = '''      let built = null;
+      let finalize;
+      try {
+        finalize = T.buildWork(lod ? null : (this._live(rec) ? this.physics : null), lod ? {
+          lodDistance: this.farDetailDist,
+          lodCenter: [rec.cx, this._groundAt(rec.cx, rec.cz) + 10, rec.cz],
+        } : {});
+        const publish = () => {
+          if (!this._live(rec)) {
+            releaseTile(built, lod ? null : this.physics);
+            if (!lod) rec.nearBuilding = false;
+            return;
+          }
+          setVisible(built, true);
+          if (lod) {
+            rec.far = built;
+          } else {
+            rec.near = built;
+            rec.nearBuilding = false;
+            this._colDirty = true;
+          }
+          rec.group.add(built.group);
+          this.render?.patchMaterials?.(built.group);
+          this._refreshCull(rec, built);
+          this._accum(built.stats);
+          if (!lod) setVisible(rec.far, false);
+        };
+        const finishSlice = () => {
+          if (!this._live(rec)) {
+            if (!lod) rec.nearBuilding = false;
+            return;
+          }
+          let result;
+          try { result = finalize.next(); }
+          catch (err) {
+            this._buildFailed(rec, lod ? 'far' : 'near', err);
+            return;
+          }
+          if (!result.done) {
+            this.schedule(finishSlice, priority);
+            return;
+          }
+          built = result.value;
+          publish();
+        };
+        finishSlice();
+      } catch (err) {
+        this._buildFailed(rec, lod ? 'far' : 'near', err);
+      }
+      return;
+
+      if (!this._live(rec)) {'''
+if old not in s: raise SystemExit('incremental finalizer queue anchor missing')
+s = s.replace(old, new, 1)
+p.write_text(s)
+
 print('Lag slicing + staged startup initialization applied')

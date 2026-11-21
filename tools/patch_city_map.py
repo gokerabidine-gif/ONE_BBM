@@ -155,9 +155,12 @@ export async function downloadSteelCityMap({ onProgress } = {}) {
   const payload = await unpack(bytes, manifest);
   await writePackage(bytes, manifest);
   report('ready', bytes.byteLength, manifest.bytes);
+  resolveWaitingMap?.(payload);
   return payload;
 }
 
+let resolveWaitingMap = null;
+const waitingMap = new Promise((resolve) => { resolveWaitingMap = resolve; });
 let loading = null;
 export function loadSteelCityMap() {
   if (loading) return loading;
@@ -174,8 +177,8 @@ export function loadSteelCityMap() {
       console.warn('[map] cached package rejected; attempting fresh download', err);
     }
     report('missing', 0, 0, 'Map not downloaded. Use the manual download button.');
-    console.info('[map] no installed map package; gameplay is blocked until manual download');
-    return null;
+    console.info('[map] world initialization is waiting for the verified manual download');
+    return await waitingMap;
   })().finally(() => { loading = null; });
   return loading;
 }
@@ -333,8 +336,9 @@ if "downloadSteelCityMap" not in s:
             this.mapButton.textContent = 'DOWNLOADING ' + pct + '%';
           },
         });
-        this.mapStatus.textContent = 'Map verified and saved. Restarting to load it…';
-        location.reload();
+        this.mapStatus.textContent = 'FULL CITY MAP VERIFIED AND INSTALLED · PRESS START TO ENTER';
+        this.mapButton.textContent = 'MAP INSTALLED';
+        this.mapButton.disabled = true;
       } catch (err) {
         this.mapStatus.textContent = 'Download failed: ' + (err?.message ?? String(err));
         this.mapButton.disabled = false;

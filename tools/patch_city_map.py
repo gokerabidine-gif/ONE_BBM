@@ -7,7 +7,7 @@ root = Path(sys.argv[1])
 cache = r'''const MAP_VERSION = 2;
 const BASE = 'https://raw.githubusercontent.com/gokerabidine-gif/ONE_BBM/map-assets/maps/steel-city-v2';
 const MANIFEST_URL = BASE + '.manifest.json';
-const PACKAGE_URL = BASE + '.json.gz';
+const PACKAGE_URL = BASE + '.pack';
 const DB_NAME = 'one-bbm-city-map';
 const DB_STORE = 'packages';
 const DB_KEY = 'steel-city-v2';

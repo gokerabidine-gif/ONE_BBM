@@ -393,4 +393,4 @@ if prewarm_anchor in main and 'ONE BBM Android prewarm bypass' not in main:
     replacement = "const isAndroidWebView = /Android/i.test(navigator.userAgent);\n// ONE BBM Android prewarm bypass: avoid prolonged startup GPU work on phones.\nconst warmup = (params.get('prewarm') === '0' || isAndroidWebView)\n  ? { ok: false, reason: isAndroidWebView ? 'deferred for Android startup thermal load' : 'disabled by ?prewarm=0' }\n  : await prewarm(engine);"
     main = main.replace(prewarm_anchor, replacement, 1)
     main_path.write_text(main)
-print('Verified full-city map cache, downloader, fail-closed world gate, and boot-screen map control applied')
+print('Verified full-city map cache, pre-init download gate, fail-closed world gate, and Android startup optimizations applied')

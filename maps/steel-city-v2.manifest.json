@@ -1,0 +1,16 @@
+{
+  "schema": "one-bbm-steel-city-map",
+  "version": 2,
+  "seed": 1592594996,
+  "encoding": "gzip-json",
+  "bytes": 1945693,
+  "sha256": "142fbac7f7a93c50ab498aa87f371eb230480a2b4a7ace21f4e60570bda8da80",
+  "counts": {
+    "roadNodes": 3435,
+    "roadEdges": 4975,
+    "blocks": 391,
+    "lots": 1907,
+    "bridges": 12,
+    "pointsOfInterest": 30
+  }
+}

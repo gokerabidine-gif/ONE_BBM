@@ -230,6 +230,12 @@ jobs:
           set -euo pipefail
           python3 tools/patch_stream_queue.py "$PROJECT_DIR"
 
+      - name: Slice expensive city streaming work across frames without changing visuals
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/patch_lag_streaming.py "$PROJECT_DIR"
+
       - name: Install dependencies
         working-directory: ${{ env.PROJECT_DIR }}
         run: npm install --no-audit --no-fund

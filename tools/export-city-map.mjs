@@ -7,11 +7,12 @@ import { pathToFileURL } from 'node:url';
 
 const project = resolve(process.argv[2] ?? process.cwd());
 const load = (rel) => import(pathToFileURL(join(project, rel)).href);
-const [{ Terrain }, { generateCity }, { subdivide, resetLotIds }, { Rng }] = await Promise.all([
+const [{ Terrain }, { generateCity }, { subdivide, resetLotIds }, { Rng }, { LANDMARKS }] = await Promise.all([
   load('src/world/terrain.js'),
   load('src/world/netgen.js'),
   load('src/world/lots.js'),
   load('src/core/rng.js'),
+  load('src/world/plan.js'),
 ]);
 
 const MAP_VERSION = 1;
@@ -48,8 +49,25 @@ const payload = {
     gridF32: Buffer.from(terrain.grid.buffer, terrain.grid.byteOffset, terrain.grid.byteLength).toString('base64'),
     roadWF32: Buffer.from(terrain.roadW.buffer, terrain.roadW.byteOffset, terrain.roadW.byteLength).toString('base64'),
   },
+  rngState: { s0: rng.s0, s1: rng.s1, s2: rng.s2, s3: rng.s3 },
+  landmarks: LANDMARKS.map((lm) => ({
+    id: lm.id,
+    site: lm.site ? { yaw: lm.site.yaw, ox: lm.site.ox, oz: lm.site.oz } : null,
+    uphill: lm.uphill ? { dir: lm.uphill.dir, rise: lm.uphill.rise } : null,
+  })),
   city: {
-    roads: graph,
+    roads: {
+      nodes: graph.nodes,
+      edges: graph.edges,
+      dedup: graph.dedup ?? null,
+      landmarkReserve: graph.landmarkReserve ?? null,
+      closure: graph.closure ?? null,
+      mainComponent: Array.from(graph.mainComponent ?? []),
+      mainComponentId: graph.mainComponentId ?? 0,
+      driveComponent: Array.from(graph.driveComponent ?? []),
+      driveMain: graph.driveMain ?? 0,
+      strandedNodes: graph.strandedNodes ?? [],
+    },
     blocks: city.blocks,
     bridges: city.bridges,
     pois: city.pois ?? [],

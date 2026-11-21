@@ -276,87 +276,74 @@ new_init = r'''    const t0 = performance.now();
 s = s[:start] + new_init + s[end:]
 p.write_text(s)
 
-p = root / 'src/ui/boot.js'
-s = p.read_text()
-if "downloadSteelCityMap" not in s:
-    anchor = "import { BOYZ, BOY_BY_ID } from './data.js';"
-    if anchor not in s: raise SystemExit('boot map downloader import anchor missing')
-    s = s.replace(anchor, anchor + "\nimport { downloadSteelCityMap } from '../world/map-cache.js';", 1)
-
-    anchor = "    this._marks = { boot: true };"
-    if anchor not in s: raise SystemExit('boot map listener insertion anchor missing')
-    listener = r'''    this._marks = { boot: true };
-    this._mapListener = (event) => {
-      const detail = event.detail ?? {};
-      if (detail.state === 'downloading') {
-        const pct = detail.total > 0 ? Math.round(detail.loaded / detail.total * 100) : 0;
-        if (this.mapStatus) this.mapStatus.textContent = 'Downloading full city map… ' + pct + '%';
-        if (this.stage) this.stage.textContent = 'Downloading complete Steel City map… ' + pct + '%';
-      } else if (detail.state === 'missing') {
-        if (this.mapStatus) this.mapStatus.textContent = 'MAP NOT INSTALLED · DOWNLOAD MANUALLY';
-      } else if (detail.state === 'cached') {
-        if (this.mapStatus) this.mapStatus.textContent = 'FULL CITY MAP INSTALLED · OFFLINE READY';
-      } else if (detail.state === 'ready') {
-        if (this.mapStatus) this.mapStatus.textContent = 'FULL CITY MAP VERIFIED · SAVED OFFLINE';
-      } else if (detail.state === 'error') {
-        if (this.mapStatus) this.mapStatus.textContent = 'MAP DOWNLOAD FAILED · ' + (detail.message || 'Tap retry');
-      }
-    };
-    window.addEventListener('onebbm:map-status', this._mapListener);'''
-    s = s.replace(anchor, listener, 1)
-
-    anchor = "    el('div', 'pct', row, '0%');"
-    map_ui = r'''    el('div', 'pct', row, '0%');
-    const mapRow = el('div', 'ow-boot-map-row', this.loadRoot);
-    setStyle(mapRow, 'display', 'flex');
-    setStyle(mapRow, 'align-items', 'center');
-    setStyle(mapRow, 'justify-content', 'space-between');
-    setStyle(mapRow, 'gap', '12px');
-    setStyle(mapRow, 'width', '100%');
-    setStyle(mapRow, 'max-width', '720px');
-    setStyle(mapRow, 'margin', '18px auto 6px');
-    this.mapStatus = el('div', 'ow-boot-map-status', mapRow, 'Checking full city map…');
-    setStyle(this.mapStatus, 'font-size', '12px');
-    setStyle(this.mapStatus, 'letter-spacing', '.08em');
-    setStyle(this.mapStatus, 'opacity', '.86');
-    this.mapButton = el('button', 'ow-btn', mapRow, 'DOWNLOAD / UPDATE MAP');
-    setStyle(this.mapButton, 'min-height', '30px');
-    setStyle(this.mapButton, 'height', '30px');
-    setStyle(this.mapButton, 'padding', '0 10px');
-    setStyle(this.mapButton, 'font-size', '9px');
-    setStyle(this.mapButton, 'letter-spacing', '.08em');
-    this.mapButton.type = 'button';
-    this._press(this.mapButton, async () => {
-      this.mapButton.disabled = true;
-      this.mapButton.textContent = 'DOWNLOADING…';
-      this.mapStatus.textContent = 'Downloading and verifying the complete city package…';
-      try {
-        await downloadSteelCityMap({
-          onProgress: (loaded, total) => {
-            const pct = total > 0 ? Math.round(loaded / total * 100) : 0;
-            this.mapButton.textContent = 'DOWNLOADING ' + pct + '%';
-          },
-        });
-        this.mapStatus.textContent = 'FULL CITY MAP VERIFIED AND INSTALLED · PRESS START TO ENTER';
-        this.mapButton.textContent = 'MAP INSTALLED';
-        this.mapButton.disabled = true;
-      } catch (err) {
-        this.mapStatus.textContent = 'Download failed: ' + (err?.message ?? String(err));
-        this.mapButton.disabled = false;
-        this.mapButton.textContent = 'RETRY MAP DOWNLOAD';
-      }
+# Install the mandatory map-download gate before Engine.init(), because WorldSystem
+# initializes before UiSystem and waits for the verified package. A button placed
+# on character selection would therefore deadlock startup.
+main_path = root / 'src/main.js'
+main = main_path.read_text()
+import_anchor = "import { prewarm } from './core/prewarm.js';"
+if "downloadSteelCityMap" not in main:
+    if import_anchor not in main: raise SystemExit('main map downloader import anchor missing')
+    main = main.replace(import_anchor, import_anchor + "\\nimport { downloadSteelCityMap } from './world/map-cache.js';", 1)
+gate_anchor = "try {\\n  await engine.init();"
+gate = r'''const mapGate = document.createElement('div');
+mapGate.id = 'onebbm-map-gate';
+Object.assign(mapGate.style, {
+  position: 'fixed', inset: '0', zIndex: '99999', display: 'flex',
+  flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+  gap: '12px', padding: '20px', background: '#07090d', color: '#f4f4f4',
+  font: '12px/1.5 system-ui, sans-serif', textAlign: 'center',
+});
+const mapGateTitle = document.createElement('div');
+mapGateTitle.textContent = 'STEEL CITY · REQUIRED MAP';
+mapGateTitle.style.cssText = 'font-weight:800;letter-spacing:.12em;font-size:14px';
+const mapGateStatus = document.createElement('div');
+mapGateStatus.textContent = 'Checking installed city map…';
+mapGateStatus.style.cssText = 'max-width:520px;opacity:.8';
+const mapGateButton = document.createElement('button');
+mapGateButton.type = 'button';
+mapGateButton.textContent = 'DOWNLOAD FULL CITY MAP';
+mapGateButton.style.cssText = 'min-height:38px;padding:0 16px;border:1px solid #9ca3af;border-radius:4px;background:#161a22;color:#fff;font:inherit;font-weight:700;letter-spacing:.08em';
+mapGate.append(mapGateTitle, mapGateStatus, mapGateButton);
+document.body.appendChild(mapGate);
+window.addEventListener('onebbm:map-status', (event) => {
+  const d = event.detail ?? {};
+  if (d.state === 'cached') mapGateStatus.textContent = 'Full city map installed · offline ready';
+  if (d.state === 'missing') mapGateStatus.textContent = 'Map required. Download it once to continue.';
+  if (d.state === 'downloading') {
+    const pct = d.total > 0 ? Math.round(d.loaded / d.total * 100) : 0;
+    mapGateStatus.textContent = 'Downloading and verifying city map… ' + pct + '%';
+    mapGateButton.textContent = 'DOWNLOADING ' + pct + '%';
+  }
+  if (d.state === 'ready') mapGateStatus.textContent = 'Full city map verified and saved offline. Starting city…';
+});
+mapGateButton.addEventListener('click', async () => {
+  mapGateButton.disabled = true;
+  mapGateButton.textContent = 'DOWNLOADING…';
+  mapGateStatus.textContent = 'Downloading the complete map, verifying checksum, and saving offline…';
+  try {
+    await downloadSteelCityMap({
+      onProgress: (loaded, total) => {
+        const pct = total > 0 ? Math.round(loaded / total * 100) : 0;
+        mapGateButton.textContent = 'DOWNLOADING ' + pct + '%';
+      },
     });
-
+    mapGateStatus.textContent = 'Map verified and installed. Entering the game…';
+    mapGateButton.textContent = 'MAP INSTALLED';
+    mapGate.remove();
+  } catch (err) {
+    mapGateStatus.textContent = 'Download failed: ' + (err?.message ?? String(err));
+    mapGateButton.disabled = false;
+    mapGateButton.textContent = 'RETRY DOWNLOAD';
+  }
+});
 '''
-    if anchor not in s: raise SystemExit('boot map UI insertion anchor missing')
-    map_start = s.index(anchor)
-    map_end = s.index(');', map_start) + 2
-    s = s[:map_start] + map_ui + s[map_end:]
-
-    anchor = "    this._offWorld?.();"
-    if anchor not in s: raise SystemExit('boot map listener cleanup anchor missing')
-    s = s.replace(anchor, anchor + "\n    window.removeEventListener('onebbm:map-status', this._mapListener);", 1)
-    p.write_text(s)
+if gate_anchor not in main: raise SystemExit('engine init gate anchor missing')
+if 'onebbm-map-gate' not in main:
+    main = main.replace(gate_anchor, gate + "\\n" + gate_anchor, 1)
+    main = main.replace("  await engine.init();", "  await engine.init();\\n  document.getElementById('onebbm-map-gate')?.remove();", 1)
+    main = main.replace("  console.error('[boot] init failed', err);", "  console.error('[boot] init failed', err);\\n  const gateStatus = document.getElementById('onebbm-map-gate');\\n  if (gateStatus) gateStatus.textContent = 'Startup failed: ' + (err?.message ?? String(err));", 1)
+    main_path.write_text(main)
 
 style_path = root / 'src/ui/style.js'
 style = style_path.read_text()

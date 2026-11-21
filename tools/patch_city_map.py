@@ -293,6 +293,8 @@ if "downloadSteelCityMap" not in s:
         const pct = detail.total > 0 ? Math.round(detail.loaded / detail.total * 100) : 0;
         if (this.mapStatus) this.mapStatus.textContent = 'Downloading full city map… ' + pct + '%';
         if (this.stage) this.stage.textContent = 'Downloading complete Steel City map… ' + pct + '%';
+      } else if (detail.state === 'missing') {
+        if (this.mapStatus) this.mapStatus.textContent = 'MAP NOT INSTALLED · DOWNLOAD MANUALLY';
       } else if (detail.state === 'cached') {
         if (this.mapStatus) this.mapStatus.textContent = 'FULL CITY MAP INSTALLED · OFFLINE READY';
       } else if (detail.state === 'ready') {

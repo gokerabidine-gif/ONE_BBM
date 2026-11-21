@@ -310,7 +310,7 @@ if "downloadSteelCityMap" not in s:
     s = s.replace(anchor, listener, 1)
 
     anchor = """    el('div', 'ow-boot-hint', w,
-      'You can switch brothers at any time — hold X, or use the phone.');"""
+      'Carson is the only selectable character.');"""
     map_ui = r'''    const mapRow = el('div', 'ow-boot-map-row', w);
     setStyle(mapRow, 'display', 'flex');
     setStyle(mapRow, 'align-items', 'center');

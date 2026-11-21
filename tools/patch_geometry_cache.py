@@ -110,7 +110,7 @@ function decodeNode(data, lib, geometryLoader) {
     object.name = data.name;
   }
   if (data.matrix) object.matrix.fromArray(data.matrix);
-  object.matrixAutoUpdate = data.matrixAutoUpdate !== false;
+  object.matrixAutoUpdate = false;
   object.visible = data.visible !== false;
   object.renderOrder = data.renderOrder ?? 0;
   object.userData = data.userData ?? {};

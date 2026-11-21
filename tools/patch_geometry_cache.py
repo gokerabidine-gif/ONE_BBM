@@ -201,25 +201,6 @@ new = """  async _buildFar(rec) {
     }
     this._buildTileInSlices(rec, 1);
   }"""
-new = """  async _buildFar(rec) {
-    if (!this._live(rec)) return;
-    let cached = await restoreFarTile(rec.tx, rec.tz, this.lib);
-    if (!this._live(rec)) {
-      if (cached) releaseTile(cached, null);
-      return;
-    }
-    if (cached) {
-      setVisible(cached, true);
-      rec.far = cached;
-      rec.group.add(cached.group);
-      this.render?.patchMaterials?.(cached.group);
-      this._refreshCull(rec, cached);
-      this._accum(cached.stats);
-      return;
-    }
-    let built = null;
-    try {
-      const plans = this._plans(rec);"""
 if 'async _buildFar(rec)' not in s:
     if old not in s: raise SystemExit('_buildFar insertion anchor missing')
     s = s.replace(old, new, 1)

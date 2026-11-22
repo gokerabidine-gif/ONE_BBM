@@ -2,7 +2,11 @@
 from pathlib import Path
 import sys
 
-root = Path(sys.argv[1])
+root = Path(sys.argv[1]).resolve()
+# Patch scripts use project-relative source paths; make them resolve from the
+# extracted archive root regardless of the workflow runner's working directory.
+import os
+os.chdir(root)
 
 # Build-trigger synchronization: execute after all cache patch modules exist.
 # Keep the ultra visual preset on Android. The previous adaptive governor

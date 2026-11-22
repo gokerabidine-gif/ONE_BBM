@@ -248,18 +248,18 @@ jobs:
           set -euo pipefail
           python3 tools/patch_geometry_cache.py "$PROJECT_DIR"
 
+      - name: Cache road sectors and complete street-prop tiles
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/patch_all_city_geometry.py "$PROJECT_DIR"
+
       - name: Stabilize Android city rendering and persistent caches
         working-directory: ${{ env.PROJECT_DIR }}
         shell: bash
         run: |
           set -euo pipefail
           python3 tools/patch_mobile_city_stability.py "$PROJECT_DIR"
-
-      - name: Cache road sectors and complete street-prop tiles
-        shell: bash
-        run: |
-          set -euo pipefail
-          python3 tools/patch_all_city_geometry.py "$PROJECT_DIR"
 
       - name: Install dependencies
         working-directory: ${{ env.PROJECT_DIR }}

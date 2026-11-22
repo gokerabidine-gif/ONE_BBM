@@ -4,6 +4,7 @@ import sys
 
 root = Path(sys.argv[1])
 
+# Build-trigger synchronization: execute after all cache patch modules exist.
 # Keep the ultra visual preset on Android. The previous adaptive governor
 # silently reduced framebuffer scale to 0.62 after a few slow windows.
 p = root / 'src/main.js'

@@ -54,6 +54,9 @@ for rel in ['src/buildings/geometry-cache.js', 'src/world/sector-cache.js', 'src
     if not p.exists():
         raise SystemExit('Expected persistent cache module missing: ' + rel)
     s = p.read_text()
+    old = "async function putRecord(record) {\n  const db = await openDb();\n  try {\n    const tx = db.transaction(STORE, 'readwrite');\n    await reqValue(tx.objectStore(STORE).put(record));\n  } finally { db.close(); }\n}"
+    new = "async function putRecord(record) {\n  const db = await openDb();\n  try {\n    const tx = db.transaction(STORE, 'readwrite');\n    const done = new Promise((resolve, reject) => { tx.oncomplete = resolve; tx.onerror = () => reject(tx.error); tx.onabort = () => reject(tx.error || new Error('cache transaction aborted')); });\n    tx.objectStore(STORE).put(record);\n    await done;\n  } finally { db.close(); }\n}"
+    if old in s: s = s.replace(old, new, 1)
     if 'async function writeRecord(record)' in s:
         old = "async function writeRecord(record) {\n  const db = await openDb();\n  try {\n    const tx = db.transaction(STORE, 'readwrite');\n    await reqValue(tx.objectStore(STORE).put(record));\n  } finally { db.close(); }\n}"
         new = "async function writeRecord(record) {\n  const db = await openDb();\n  try {\n    const tx = db.transaction(STORE, 'readwrite');\n    const done = new Promise((resolve, reject) => { tx.oncomplete = resolve; tx.onerror = () => reject(tx.error); tx.onabort = () => reject(tx.error || new Error('cache transaction aborted')); });\n    tx.objectStore(STORE).put(record);\n    await done;\n  } finally { db.close(); }\n}"

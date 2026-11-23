@@ -1,23 +1,39 @@
 #!/usr/bin/env python3
-"""Prioritize camera-near building geometry over distant city massing."""
+"""Make camera-near building work outrank far massing, idempotently."""
 from pathlib import Path
 import sys
 
 arg = Path(sys.argv[1])
 root = arg.resolve()
-# Workflow invokes this from PROJECT_DIR but passes PROJECT_DIR again.
 if not root.exists() and not arg.is_absolute():
     root = Path.cwd().resolve()
 p = root / "src/buildings/index.js"
 s = p.read_text()
-old_far = "this.schedule(() => this._buildFar(rec), 1);"
-new_far = "this.schedule(() => this._buildFar(rec), 8); // distant massing is background work"
-old_near = "this.schedule(() => this._buildNear(rec), 4);"
-new_near = "this.schedule(() => this._buildNear(rec), 0); // near facade geometry is first priority"
-if old_far not in s and new_far not in s:
-    raise SystemExit("far-build priority anchor missing")
-if old_near not in s and new_near not in s:
-    raise SystemExit("near-build priority anchor missing")
-s = s.replace(old_far, new_far, 1).replace(old_near, new_near, 1)
+
+# Outer scheduling is already patched by some upstream streaming scripts.
+far_variants = [
+    "this.schedule(() => this._buildFar(rec), 1);",
+    "this.schedule(() => this._buildFar(rec), 8); // distant massing is background work",
+]
+near_variants = [
+    "this.schedule(() => this._buildNear(rec), 4);",
+    "this.schedule(() => this._buildNear(rec), 0); // near facade geometry is first priority",
+]
+if not any(x in s for x in far_variants):
+    raise SystemExit("far-build scheduling anchor missing (unrecognized source version)")
+if not any(x in s for x in near_variants):
+    raise SystemExit("near-build scheduling anchor missing (unrecognized source version)")
+s = s.replace(far_variants[0], far_variants[1], 1)
+s = s.replace(near_variants[0], near_variants[1], 1)
+
+# Crucial: the sliced geometry queue's per-slice priority is what determines
+# whether near facade lots or far massing consume the queue first.
+old_slice = "const priority = lod ? 4 : 1;"
+new_slice = "const priority = lod ? 8 : 0;"
+if old_slice in s:
+    s = s.replace(old_slice, new_slice, 1)
+elif new_slice not in s:
+    raise SystemExit("building-slice priority anchor missing (unrecognized source version)")
+
 p.write_text(s)
-print("Near buildings promoted to priority 0; far massing demoted to priority 8")
+print("Building work reprioritized: near slices=0, far slices=8; outer schedule idempotently normalized.")

@@ -262,6 +262,14 @@ jobs:
           set -euo pipefail
           python3 tools/patch_all_city_geometry.py "$PROJECT_DIR"
 
+
+      - name: Accelerate nearby street-prop detail promotion
+        working-directory: ${{ env.PROJECT_DIR }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 "$GITHUB_WORKSPACE/tools/patch_city_prop_promotion.py" "$PROJECT_DIR"
+
       - name: Stabilize Android city rendering and persistent caches
         working-directory: ${{ env.PROJECT_DIR }}
         shell: bash

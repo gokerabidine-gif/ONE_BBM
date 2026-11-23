@@ -3,7 +3,10 @@
 from pathlib import Path
 import sys
 
-root = Path(sys.argv[1]).resolve()
+arg = Path(sys.argv[1])
+root = arg.resolve()
+if not (root / "src").is_dir() and not arg.is_absolute():
+    root = Path.cwd().resolve()
 p = root / "src/render/cull.js"
 s = p.read_text()
 

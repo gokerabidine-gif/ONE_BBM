@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
-"""Make camera-near building work outrank far massing, idempotently."""
+"""Prioritize detailed camera-near city geometry; robust to upstream formatting."""
 from pathlib import Path
+import re
 import sys
 
 arg = Path(sys.argv[1])
@@ -10,30 +11,27 @@ if not root.exists() and not arg.is_absolute():
 p = root / "src/buildings/index.js"
 s = p.read_text()
 
-# Outer scheduling is already patched by some upstream streaming scripts.
-far_variants = [
-    "this.schedule(() => this._buildFar(rec), 1);",
-    "this.schedule(() => this._buildFar(rec), 8); // distant massing is background work",
-]
-near_variants = [
-    "this.schedule(() => this._buildNear(rec), 4);",
-    "this.schedule(() => this._buildNear(rec), 0); // near facade geometry is first priority",
-]
-if not any(x in s for x in far_variants):
-    raise SystemExit("far-build scheduling anchor missing (unrecognized source version)")
-if not any(x in s for x in near_variants):
-    raise SystemExit("near-build scheduling anchor missing (unrecognized source version)")
-s = s.replace(far_variants[0], far_variants[1], 1)
-s = s.replace(near_variants[0], near_variants[1], 1)
+def replace_line(pattern, replacement, label):
+    global s
+    s2, n = re.subn(pattern, replacement, s, count=1, flags=re.MULTILINE)
+    if n == 0:
+        if replacement.strip() not in s:
+            raise SystemExit(label + " anchor missing (unrecognized source version)")
+    else:
+        s = s2
 
-# Crucial: the sliced geometry queue's per-slice priority is what determines
-# whether near facade lots or far massing consume the queue first.
-old_slice = "const priority = lod ? 4 : 1;"
-new_slice = "const priority = lod ? 8 : 0;"
-if old_slice in s:
-    s = s.replace(old_slice, new_slice, 1)
-elif new_slice not in s:
-    raise SystemExit("building-slice priority anchor missing (unrecognized source version)")
+# Schedule far massing late and near geometry early. Preserve trailing comments.
+replace_line(r"^\s*this\.schedule\(\(\) => this\._buildFar\(rec\), \d+\);.*$",
+             "    this.schedule(() => this._buildFar(rec), 8); // distant massing is background work",
+             "far-build scheduling")
+replace_line(r"^\s*this\.schedule\(\(\) => this\._buildNear\(rec\), \d+\);.*$",
+             "        this.schedule(() => this._buildNear(rec), 0); // near facade geometry is first priority",
+             "near-build scheduling")
 
+# Prioritize the per-slice queue too, otherwise its initial wrapper priority
+# does not matter after each slice requeues itself.
+replace_line(r"^\s*const priority = lod \? \d+ : \d+;.*$",
+             "    const priority = lod ? 8 : 0;",
+             "building-slice priority")
 p.write_text(s)
-print("Building work reprioritized: near slices=0, far slices=8; outer schedule idempotently normalized.")
+print("Building priorities applied: near detail 0; far massing 8.")

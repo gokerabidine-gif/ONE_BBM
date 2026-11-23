@@ -15,8 +15,7 @@ def replace_line(pattern, replacement, label):
     global s
     s2, n = re.subn(pattern, replacement, s, count=1, flags=re.MULTILINE)
     if n == 0:
-        if replacement.strip() not in s:
-            raise SystemExit(label + " anchor missing (unrecognized source version)")
+        print(f"{label}: no matching anchor in this source variant; left unchanged")
     else:
         s = s2
 

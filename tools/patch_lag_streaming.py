@@ -32,7 +32,7 @@ new = r'''  _buildFar(rec) {
     }
 
     let index = 0;
-    const priority = lod ? 1 : 4;
+    // Lower queue number runs first: prioritize detailed near tiles over far massing.\n    const priority = lod ? 4 : 1;
     const pump = () => {
       if (!this._live(rec)) {
         if (!lod) rec.nearBuilding = false;

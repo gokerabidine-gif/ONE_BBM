@@ -50,55 +50,6 @@ elif 'this.midRadius = /Android/i.test(navigator.userAgent)' not in s:
     raise SystemExit('Prop mid-radius anchor missing')
 p.write_text(s)
 
-# Android: remove every non-player pedestrian/character. The player avatar is
-# managed by src/player and is not part of PedSystem.
-p = root / 'src/peds/index.js'
-s = p.read_text()
-old = '    this.budget = Math.max(4, this.q.pedBudget ?? 40);'
-new = '    this._androidNoNpc = /Android/i.test(navigator.userAgent);\n    this.budget = this._androidNoNpc ? 0 : Math.max(4, this.q.pedBudget ?? 40);'
-if old not in s: raise SystemExit('PedSystem budget anchor missing')
-s = s.replace(old, new, 1)
-old = '    this.ambientBodies = Math.max(6, Math.min(38, Math.round(this.budget * 0.36)));'
-new = '    this.ambientBodies = this._androidNoNpc ? 0 : Math.max(6, Math.min(38, Math.round(this.budget * 0.36)));'
-if old not in s: raise SystemExit('PedSystem ambient-body anchor missing')
-s = s.replace(old, new, 1)
-old = '    this.maxBodies = this.ambientBodies + CREW_MAX + HOSTILE_BODIES;'
-new = '    this.maxBodies = this._androidNoNpc ? 0 : this.ambientBodies + CREW_MAX + HOSTILE_BODIES;'
-if old not in s: raise SystemExit('PedSystem max-body anchor missing')
-s = s.replace(old, new, 1)
-old = '    this.crewAuto = true;          // spawn them as soon as there is a player'
-new = '    this.crewAuto = !this._androidNoNpc; // companions disabled on Android'
-if old not in s: raise SystemExit('Crew auto anchor missing')
-s = s.replace(old, new, 1)
-old = '  update(dt, ctx) {\n    const t0 = performance.now();'
-new = '  update(dt, ctx) {\n    if (this._androidNoNpc) { this.stats.live = 0; this.stats.target = 0; this.stats.crew = 0; this.stats.ms = 0; return; }\n    const t0 = performance.now();'
-if old not in s: raise SystemExit('PedSystem update anchor missing')
-s = s.replace(old, new, 1)
-old = '  spawnHostile(position, opts) {\n    return this.hostiles.spawn(position, opts);'
-new = '  spawnHostile(position, opts) {\n    if (this._androidNoNpc) return null;\n    return this.hostiles.spawn(position, opts);'
-if old not in s: raise SystemExit('Hostile spawn API anchor missing')
-s = s.replace(old, new, 1)
-old = '  spawnCrew(ids = null) {\n    this.crewAuto = ids === null;\n    return this.crew.spawn(ids);'
-new = '  spawnCrew(ids = null) {\n    if (this._androidNoNpc) { this.crewAuto = false; this.crew.despawn(); return 0; }\n    this.crewAuto = ids === null;\n    return this.crew.spawn(ids);'
-if old not in s: raise SystemExit('Crew spawn API anchor missing')
-s = s.replace(old, new, 1)
-p.write_text(s)
-
-# Guard direct hostile and crew subsystem spawn paths too.
-p = root / 'src/peds/hostile.js'
-s = p.read_text()
-old = '  spawn(position, opts = DEF) {\n    if (!position || !Number.isFinite(position.x)) return null;'
-new = '  spawn(position, opts = DEF) {\n    if (this.sys._androidNoNpc || !position || !Number.isFinite(position.x)) return null;'
-if old not in s: raise SystemExit('Hostile class spawn anchor missing')
-p.write_text(s.replace(old, new, 1))
-
-p = root / 'src/peds/crew.js'
-s = p.read_text()
-old = '  spawn(ids = null) {\n    const want = this._resolveIds(ids);'
-new = '  spawn(ids = null) {\n    if (this.sys._androidNoNpc) { this.despawn(); return 0; }\n    const want = this._resolveIds(ids);'
-if old not in s: raise SystemExit('Crew class spawn anchor missing')
-p.write_text(s.replace(old, new, 1))
-
 # Wait for IndexedDB transaction completion to ensure cache writes commit.
 for rel in ['src/buildings/geometry-cache.js', 'src/world/sector-cache.js', 'src/props/tile-cache.js']:
     p = root / rel

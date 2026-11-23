@@ -277,6 +277,13 @@ jobs:
           set -euo pipefail
           python3 "$GITHUB_WORKSPACE/tools/patch_mobile_city_stability.py" "$PROJECT_DIR"
 
+      - name: Prioritize camera-near buildings over distant massing
+        working-directory: ${{ env.PROJECT_DIR }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 "$GITHUB_WORKSPACE/tools/patch_near_buildings_priority.py" "$PROJECT_DIR"
+
       - name: Install dependencies
         working-directory: ${{ env.PROJECT_DIR }}
         run: npm install --no-audit --no-fund

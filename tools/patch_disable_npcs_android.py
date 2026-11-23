@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 from pathlib import Path
 import sys
-root = Path(sys.argv[1]).resolve()
+arg = Path(sys.argv[1])\nroot = arg.resolve()\nif not root.exists() and not arg.is_absolute():\n    root = Path.cwd().resolve()
 p = root / "src/peds/index.js"
 s = p.read_text()
 pairs = [

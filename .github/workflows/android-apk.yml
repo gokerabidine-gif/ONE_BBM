@@ -284,6 +284,13 @@ jobs:
           set -euo pipefail
           python3 "$GITHUB_WORKSPACE/tools/patch_near_buildings_priority.py" "$PROJECT_DIR"
 
+      - name: Apply camera visibility to all city detail groups without rebuilding hidden geometry
+        working-directory: ${{ env.PROJECT_DIR }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 "$GITHUB_WORKSPACE/tools/patch_city_visibility.py" "$PROJECT_DIR"
+
       - name: Install dependencies
         working-directory: ${{ env.PROJECT_DIR }}
         run: npm install --no-audit --no-fund

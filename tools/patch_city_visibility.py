@@ -55,7 +55,7 @@ update_new = """      const c = g.center;
         show = false;
         this.stats.groupsCulledDistance++;
       } else {
-        const frustumRadius = g.radius + (g.hidden ? margin * 0.35 : -margin * 0.35);
+        const frustumRadius = Math.max(0.5, g.radius + (g.hidden ? margin * 0.35 : -margin * 0.35));
         if (!this.sphereVisible(c.x, c.y, c.z, frustumRadius)) {
           show = false;
           this.stats.groupsCulledFrustum++;
